@@ -1,9 +1,17 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
+  },
+  webpack: (config) => {
+    // Replace puppeteer with a stub to prevent NFT from tracing Chromium and
+    // the full puppeteer package during `Collecting build traces` (which OOMs).
+    // PDF generation will gracefully fail at runtime in environments without Chromium.
+    config.resolve.alias['puppeteer'] = path.resolve('./src/lib/puppeteer-stub.ts');
+    return config;
   },
   outputFileTracingExcludes: {
     '*': [
