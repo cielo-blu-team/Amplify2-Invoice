@@ -10,7 +10,7 @@ frontend:
       commands:
         - export NODE_OPTIONS="--max-old-space-size=8192"
         - export NEXT_TELEMETRY_DISABLED=1
-        - node --max-old-space-size=3000 ./node_modules/.bin/next build --webpack
+        - node --max-old-space-size=3000 ./node_modules/next/dist/bin/next build --webpack
   artifacts:
     baseDirectory: .next
     files:
