@@ -17,6 +17,8 @@ const notoSansJP = Noto_Sans_JP({
   display: 'swap',
 });
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: '請求書・見積書作成システム',
   description: 'IS Holdings 帳票管理システム',
