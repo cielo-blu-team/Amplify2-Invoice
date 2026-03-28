@@ -2,9 +2,25 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  outputFileTracing: false,
   typescript: {
     ignoreBuildErrors: true,
+  },
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': [
+        'puppeteer/**/*',
+        'puppeteer-core/**/*',
+        '@aws-sdk/**/*',
+        'aws-cdk-lib/**/*',
+        'constructs/**/*',
+        '@aws-amplify/backend/**/*',
+        '@aws-amplify/backend-cli/**/*',
+        'vitest/**/*',
+        'playwright/**/*',
+        '@playwright/**/*',
+        'jsdom/**/*',
+      ],
+    },
   },
 };
 
