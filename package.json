@@ -84,7 +84,6 @@
       "@parcel/watcher",
       "core-js",
       "esbuild",
-      "puppeteer",
       "sharp"
     ]
   }

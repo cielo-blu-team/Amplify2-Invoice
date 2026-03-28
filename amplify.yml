@@ -10,7 +10,8 @@ frontend:
       commands:
         - export NODE_OPTIONS="--max-old-space-size=8192"
         - export NEXT_TELEMETRY_DISABLED=1
-        - pnpm exec next build --no-turbopack
+        - export TURBOPACK=0
+        - pnpm run build
   artifacts:
     baseDirectory: .next
     files:
