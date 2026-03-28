@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>請求書 {{documentNumber}}</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  {{#isCancelled}}
+  <div class="cancelled-watermark">取消済</div>
+  {{/isCancelled}}
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-title">請　求　書</div>
+    <div class="header-company">
+      {{#logoUrl}}
+      <img class="logo" src="{{logoUrl}}" alt="会社ロゴ" />
+      <br />
+      {{/logoUrl}}
+      <span class="company-name">{{companyName}}</span>
+      {{#sealUrl}}
+      <img class="stamp" src="{{sealUrl}}" alt="印影" />
+      {{/sealUrl}}
+      <br />
+      〒{{companyPostalCode}} {{companyAddress}}<br />
+      TEL: {{companyPhone}}{{#companyFax}} / FAX: {{companyFax}}{{/companyFax}}<br />
+      {{#companyEmail}}{{companyEmail}}<br />{{/companyEmail}}
+      <span class="registration-number">適格請求書発行事業者登録番号: {{registrationNumber}}</span>
+    </div>
+  </div>
+
+  <!-- 帳票情報 -->
+  <div class="document-info">
+    <div class="client-info">
+      <div class="client-name">{{clientName}} 御中</div>
+      <div class="client-details">
+        {{#clientPostalCode}}〒{{clientPostalCode}}<br />{{/clientPostalCode}}
+        {{#clientAddress}}{{clientAddress}}<br />{{/clientAddress}}
+        {{#clientRegistrationNumber}}
+        <span class="registration-number">登録番号: {{clientRegistrationNumber}}</span>
+        {{/clientRegistrationNumber}}
+      </div>
+    </div>
+
+    <table class="meta-table">
+      <tr>
+        <td>請求書番号</td>
+        <td>{{documentNumber}}</td>
+      </tr>
+      <tr>
+        <td>発行日</td>
+        <td>{{issueDate}}</td>
+      </tr>
+      <tr>
+        <td>支払期限</td>
+        <td><strong>{{dueDate}}</strong></td>
+      </tr>
+      <tr>
+        <td>合計金額</td>
+        <td><strong>{{totalAmount}} 円</strong></td>
+      </tr>
+      {{#sourceEstimateNumber}}
+      <tr>
+        <td>見積書番号</td>
+        <td>{{sourceEstimateNumber}}</td>
+      </tr>
+      {{/sourceEstimateNumber}}
+    </table>
+  </div>
+
+  {{#subject}}
+  <div class="subject">件名: {{subject}}</div>
+  {{/subject}}
+
+  <!-- 明細行 -->
+  <table class="line-items">
+    <thead>
+      <tr>
+        <th class="col-no">No.</th>
+        <th class="col-name">品目・内容</th>
+        <th class="col-qty">数量</th>
+        <th class="col-unit">単位</th>
+        <th class="col-price">単価</th>
+        <th class="col-tax">税率</th>
+        <th class="col-amount">金額</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#lineItems}}
+      <tr>
+        <td class="col-no">{{index}}</td>
+        <td class="col-name">{{itemName}}</td>
+        <td class="col-qty">{{quantity}}</td>
+        <td class="col-unit">{{unit}}</td>
+        <td class="col-price">{{unitPrice}}</td>
+        <td class="col-tax">{{taxRate}}%{{#isReducedTax}}<span class="reduced-tax-note">※</span>{{/isReducedTax}}</td>
+        <td class="col-amount">{{amount}}</td>
+      </tr>
+      {{/lineItems}}
+      {{#emptyRows}}
+      <tr>
+        <td class="col-no">&nbsp;</td>
+        <td class="col-name">&nbsp;</td>
+        <td class="col-qty">&nbsp;</td>
+        <td class="col-unit">&nbsp;</td>
+        <td class="col-price">&nbsp;</td>
+        <td class="col-tax">&nbsp;</td>
+        <td class="col-amount">&nbsp;</td>
+      </tr>
+      {{/emptyRows}}
+    </tbody>
+  </table>
+
+  <!-- 税率別内訳・合計 -->
+  <div class="summary-area">
+    <table class="tax-summary">
+      <tr>
+        <td>小計（10%対象）</td>
+        <td>{{tax10Subtotal}} 円</td>
+      </tr>
+      <tr>
+        <td>消費税（10%）</td>
+        <td>{{tax10Amount}} 円</td>
+      </tr>
+      {{#hasTax8}}
+      <tr>
+        <td>小計（※8%対象）</td>
+        <td>{{tax8Subtotal}} 円</td>
+      </tr>
+      <tr>
+        <td>消費税（8%）</td>
+        <td>{{tax8Amount}} 円</td>
+      </tr>
+      {{/hasTax8}}
+      {{#hasTaxExempt}}
+      <tr>
+        <td>非課税小計</td>
+        <td>{{taxExemptSubtotal}} 円</td>
+      </tr>
+      {{/hasTaxExempt}}
+      <tr>
+        <td>消費税合計</td>
+        <td>{{taxAmount}} 円</td>
+      </tr>
+      <tr class="total-row">
+        <td>合計（税込）</td>
+        <td>{{totalAmount}} 円</td>
+      </tr>
+    </table>
+  </div>
+
+  {{#hasTax8}}
+  <p style="font-size: 8pt; color: #666; text-align: right; margin-bottom: 4mm;">
+    ※印は軽減税率（8%）対象品目
+  </p>
+  {{/hasTax8}}
+
+  <!-- 振込先情報 -->
+  <div class="bank-info">
+    <div class="bank-info-title">お振込先</div>
+    {{bankName}} {{branchName}}<br />
+    {{accountType}}　{{accountNumber}}<br />
+    口座名義: {{accountHolder}}
+  </div>
+
+  <!-- 備考 -->
+  {{#notes}}
+  <div class="notes">
+    <div class="notes-title">備考</div>
+    {{notes}}
+  </div>
+  {{/notes}}
+
+  <div class="footer">
+    この請求書は消費税法に基づく適格請求書（インボイス）です。
+  </div>
+</body>
+</html>

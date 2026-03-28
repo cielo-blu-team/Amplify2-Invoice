@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200" viewBox="0 0 600 200">
+  <text
+    x="300"
+    y="150"
+    font-family="'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif"
+    font-size="120"
+    font-weight="bold"
+    fill="red"
+    opacity="0.25"
+    text-anchor="middle"
+    transform="rotate(-35, 300, 100)"
+  >取消済</text>
+</svg>

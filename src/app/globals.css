@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+@theme {
+  --color-background:         #f0f1f8;
+  --color-surface:            #ffffff;
+  --color-surface-elevated:   #ffffff;
+  --color-border:             rgba(0,0,0,0.07);
+  --color-border-strong:      rgba(0,0,0,0.13);
+
+  --color-foreground:         #0f0f1a;
+  --color-foreground-muted:   #52525e;
+  --color-foreground-subtle:  #9098a8;
+
+  --color-primary:            #6366f1;
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover:      #4f52e8;
+
+  --color-secondary:          #f1f1f8;
+  --color-secondary-foreground: #3d3d52;
+  --color-muted:              #f4f4f8;
+  --color-muted-foreground:   #71717a;
+
+  --color-accent:             #6366f1;
+  --color-accent-foreground:  #ffffff;
+
+  --color-destructive:        #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  --color-success:            #10b981;
+  --color-warning:            #f59e0b;
+  --color-info:               #3b82f6;
+
+  --color-card:               #ffffff;
+  --color-card-foreground:    #0f0f1a;
+  --color-input:              #ffffff;
+  --color-ring:               #6366f1;
+
+  --radius: 0.625rem;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  border-color: rgba(0,0,0,0.07);
+  box-sizing: border-box;
+}
+
+html { color-scheme: light; }
+
+body {
+  background-color: #f0f1f8;
+  color: #0f0f1a;
+  font-family: var(--font-jakarta), var(--font-noto), 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.28); }
+
+/* ── Selection ──────────────────────────────────────────────── */
+::selection { background: rgba(99,102,241,0.35); color: #fff; }
+
+/* ── Focus ring ─────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(99,102,241,0.7);
+  outline-offset: 2px;
+}
+
+/* ── Glass card ─────────────────────────────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* ── Gradient text ──────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Page section headings ──────────────────────────────────── */
+h1, h2 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* ── Glow effects ───────────────────────────────────────────── */
+.glow-indigo {
+  box-shadow: 0 0 20px rgba(99,102,241,0.25), 0 0 60px rgba(99,102,241,0.08);
+}
+.glow-sm {
+  box-shadow: 0 0 12px rgba(99,102,241,0.2);
+}
+
+/* ── Mesh gradient background ───────────────────────────────── */
+.mesh-bg {
+  background-image:
+    radial-gradient(ellipse at 15% 40%, rgba(99,102,241,0.13) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(139,92,246,0.11) 0%, transparent 50%),
+    radial-gradient(ellipse at 55% 85%, rgba(59,130,246,0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 50%, rgba(236,72,153,0.05) 0%, transparent 45%);
+}
+
+/* ── Noise texture overlay ──────────────────────────────────── */
+.noise::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+/* ── Animated gradient border ───────────────────────────────── */
+@keyframes border-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Smooth transitions ─────────────────────────────────────── */
+a, button { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ── Shimmer loading ────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Fade in ────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+/* ── Pulse dot ──────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.pulse-dot { animation: pulse-dot 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+/* ── Tabs active state ──────────────────────────────────────── */
+[data-state="active"][role="tab"] {
+  background: #ffffff;
+  color: #6366f1 !important;
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.25), 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ── date input light color-scheme ──────────────────────────── */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  opacity: 0.5;
+  cursor: pointer;
+}
+input[type="date"] { color-scheme: light; }
+
+/* ── number input hide arrows ───────────────────────────────── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] { -moz-appearance: textfield; }
