@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: 1,
-    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
   },
   webpack: (config) => {
     // Replace puppeteer with a stub to prevent NFT from tracing Chromium and
