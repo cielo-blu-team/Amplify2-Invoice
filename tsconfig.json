@@ -37,6 +37,9 @@
   ],
   "exclude": [
     "node_modules",
-    "mcp-server"
+    "mcp-server",
+    "amplify",
+    "e2e",
+    "scripts"
   ]
 }
