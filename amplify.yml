@@ -9,9 +9,9 @@ frontend:
         - node scripts/patch-nft-memory.js
     build:
       commands:
-        - export NODE_OPTIONS="--max-old-space-size=4096"
+        - export NODE_OPTIONS="--max-old-space-size=3072"
         - export NEXT_TELEMETRY_DISABLED=1
-        - pnpm exec next build 2>&1
+        - bash -c '(while true; do CGUSE=$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null || echo "N/A"); printf "CG_USE_BYTES:%s\n" "$CGUSE"; sleep 3; done) & MONITOR=$!; pnpm exec next build --webpack 2>&1; EXIT=$?; kill $MONITOR 2>/dev/null; echo "===BUILD_EXIT_CODE:$EXIT==="; exit $EXIT'
   artifacts:
     baseDirectory: .next
     files:
