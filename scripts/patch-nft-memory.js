@@ -12,17 +12,10 @@ const tracePath = path.resolve('./node_modules/next/dist/build/collect-build-tra
 let content = fs.readFileSync(tracePath, 'utf8');
 
 const SKIP_PATTERN = `
-                    // Skip heavy packages to reduce NFT trace memory (patched)
-                    if (p.includes('/node_modules/@aws-sdk/') ||
-                        p.includes('/node_modules/@smithy/') ||
-                        p.includes('/node_modules/aws-cdk-lib/') ||
-                        p.includes('/node_modules/constructs/') ||
-                        p.includes('/node_modules/@aws-cdk/') ||
-                        p.includes('/node_modules/vitest/') ||
-                        p.includes('/node_modules/@vitest/') ||
-                        p.includes('/node_modules/jsdom/') ||
-                        p.includes('/node_modules/playwright/') ||
-                        p.includes('/node_modules/@playwright/')) {
+                    // Skip all node_modules to prevent OOM during NFT trace (patched).
+                    // Amplify WEB_COMPUTE deploys the full node_modules directory, so
+                    // an incomplete trace does not affect runtime availability of packages.
+                    if (p.includes('/node_modules/')) {
                       return '';
                     }`;
 
