@@ -1,5 +1,4 @@
 import type { NextConfig } from 'next';
-import path from 'path';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -8,14 +7,13 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: 2,
-    webpackBuildWorker: true,
   },
-  webpack: (config) => {
-    // Replace puppeteer with a stub to prevent NFT from tracing Chromium and
-    // the full puppeteer package during `Collecting build traces` (which OOMs).
-    // PDF generation will gracefully fail at runtime in environments without Chromium.
-    config.resolve.alias['puppeteer'] = path.resolve('./src/lib/puppeteer-stub.ts');
-    return config;
+  turbopack: {
+    // Replace puppeteer with a stub to prevent NFT from tracing Chromium
+    // during `Collecting build traces` (which OOMs on Amplify).
+    resolveAlias: {
+      puppeteer: './src/lib/puppeteer-stub.ts',
+    },
   },
   outputFileTracingExcludes: {
     '*': [
