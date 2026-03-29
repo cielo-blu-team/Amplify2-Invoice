@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
- * Patches Next.js's collect-build-traces.js to skip reading heavy packages
- * during NFT (node file trace) traversal, reducing memory usage on low-RAM
- * build containers. The skipped packages are already excluded from the trace
- * output via outputFileTracingExcludes in next.config.ts.
+ * Patches Next.js's collect-build-traces.js to add an `ignore` option to the
+ * nodeFileTrace call, preventing NFT from ever stat/read/following any file
+ * inside node_modules. This eliminates OOM during "Collecting build traces"
+ * on memory-constrained build containers.
+ *
+ * Using `ignore` is more efficient than patching readFile, because ignored
+ * paths are never stat()d, never read, and never added to the traversal queue.
+ * The resulting .nft.json files will only list app-code files, which is fine
+ * for Amplify WEB_COMPUTE since it deploys the full node_modules separately.
  */
 const fs = require('fs');
 const path = require('path');
@@ -11,26 +16,34 @@ const path = require('path');
 const tracePath = path.resolve('./node_modules/next/dist/build/collect-build-traces.js');
 let content = fs.readFileSync(tracePath, 'utf8');
 
-const SKIP_PATTERN = `
-                    // Skip all node_modules to prevent OOM during NFT trace (patched).
-                    // Amplify WEB_COMPUTE deploys the full node_modules directory, so
-                    // an incomplete trace does not affect runtime availability of packages.
-                    if (p.includes('/node_modules/')) {
-                      return '';
-                    }`;
+// Patch 1: add `ignore` to the nodeFileTrace options to completely skip node_modules
+const oldNft = `            const result = await (0, _nft.nodeFileTrace)(chunksToTrace, {
+                base: outputFileTracingRoot,
+                processCwd: dir,
+                mixedModules: true,
+                async readFile (p) {`;
 
-const oldCode = `                async readFile (p) {
-                    try {
-                        return await _promises.default.readFile(p, 'utf8');`;
+const newNft = `            const result = await (0, _nft.nodeFileTrace)(chunksToTrace, {
+                base: outputFileTracingRoot,
+                processCwd: dir,
+                mixedModules: true,
+                // Skip node_modules entirely to prevent OOM (patched for Amplify WEB_COMPUTE)
+                ignore: (p) => p.includes('/node_modules/'),
+                async readFile (p) {`;
 
-const newCode = `                async readFile (p) {
-                    try {${SKIP_PATTERN}
-                        return await _promises.default.readFile(p, 'utf8');`;
+let patched = false;
 
-if (content.includes(oldCode)) {
-  content = content.replace(oldCode, newCode);
-  fs.writeFileSync(tracePath, content);
-  console.log('✓ Patched collect-build-traces.js: heavy packages will be skipped during NFT traversal');
+if (content.includes(oldNft)) {
+  content = content.replace(oldNft, newNft);
+  patched = true;
+  console.log('✓ Patch 1 applied: nodeFileTrace will ignore all node_modules paths');
 } else {
-  console.warn('⚠ Could not find patch target in collect-build-traces.js - skipping patch');
+  console.warn('⚠ Patch 1: could not find nodeFileTrace options block');
+}
+
+if (patched) {
+  fs.writeFileSync(tracePath, content);
+} else {
+  console.error('✗ No patches applied — build traces may still OOM');
+  process.exit(1);
 }
