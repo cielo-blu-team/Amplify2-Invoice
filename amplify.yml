@@ -9,9 +9,9 @@ frontend:
         - node scripts/patch-nft-memory.js
     build:
       commands:
-        - export NODE_OPTIONS="--max-old-space-size=8192"
+        - export NODE_OPTIONS="--max-old-space-size=6144"
         - export NEXT_TELEMETRY_DISABLED=1
-        - pnpm exec next build --webpack
+        - pnpm exec next build --webpack 2>&1
   artifacts:
     baseDirectory: .next
     files:

@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    cpus: 2,
+  },
   webpack: (config) => {
     // Replace puppeteer with a stub to prevent NFT from tracing Chromium and
     // the full puppeteer package during `Collecting build traces` (which OOMs).
