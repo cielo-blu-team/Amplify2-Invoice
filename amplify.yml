@@ -6,9 +6,10 @@ frontend:
         - corepack enable
         - corepack prepare pnpm@latest --activate
         - pnpm install --frozen-lockfile
+        - node scripts/patch-nft-memory.js
     build:
       commands:
-        - export NODE_OPTIONS="--max-old-space-size=14336"
+        - export NODE_OPTIONS="--max-old-space-size=8192"
         - export NEXT_TELEMETRY_DISABLED=1
         - pnpm exec next build --webpack
   artifacts:
