@@ -9,21 +9,9 @@ frontend:
         - node scripts/patch-nft-memory.js
     build:
       commands:
-        - export NODE_OPTIONS="--max-old-space-size=3072"
+        - export NODE_OPTIONS="--expose-gc --max-old-space-size=3072"
         - export NEXT_TELEMETRY_DISABLED=1
-        - |
-          bash -c '
-          CG=$(cat /proc/self/cgroup | grep ":memory:" | awk -F: "{print \$3}" | head -1)
-          echo "CGROUP_PATH:${CG}"
-          echo "CGROUP_LIMIT:$(cat /sys/fs/cgroup/memory${CG}/memory.limit_in_bytes 2>/dev/null || echo N/A)"
-          (while true; do
-            USE=$(cat /sys/fs/cgroup/memory${CG}/memory.usage_in_bytes 2>/dev/null || echo N/A)
-            printf "CG_USE:%s\n" "$USE"; sleep 1
-          done) & MON=$!
-          pnpm exec next build --webpack 2>&1
-          EXIT=$?; kill $MON 2>/dev/null
-          echo "===BUILD_EXIT_CODE:${EXIT}==="
-          exit $EXIT'
+        - bash -c '(while true; do USE=$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null || echo N/A); printf "CG_USE:%s\n" "$USE"; sleep 1; done) & MON=$!; pnpm exec next build --webpack 2>&1; EXIT=$?; kill $MON 2>/dev/null; echo "===BUILD_EXIT_CODE:${EXIT}==="; exit $EXIT'
   artifacts:
     baseDirectory: .next
     files:
