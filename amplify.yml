@@ -12,7 +12,8 @@ frontend:
         - export NODE_OPTIONS="--max-old-space-size=6144"
         - export NEXT_TELEMETRY_DISABLED=1
         - cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable"
-        - bash -c 'pnpm exec next build --webpack 2>&1; EXIT=$?; echo "===BUILD_EXIT_CODE:$EXIT==="; exit $EXIT'
+        - cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || cat /sys/fs/cgroup/memory.max 2>/dev/null || echo "cgroup-limit-unknown"
+        - bash -c '(while true; do printf "MEM_AVAIL_KB:$(grep MemAvailable /proc/meminfo | awk "{print \$2}")\n"; sleep 5; done) & MONITOR=$!; pnpm exec next build --webpack 2>&1; EXIT=$?; kill $MONITOR 2>/dev/null; echo "===BUILD_EXIT_CODE:$EXIT==="; exit $EXIT'
   artifacts:
     baseDirectory: .next
     files:
