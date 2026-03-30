@@ -1,5 +1,4 @@
 import type { NextConfig } from 'next';
-import path from 'path';
 
 const nextConfig: NextConfig = {
   // Cloud Run デプロイに必要（Docker standalone モード）
@@ -8,15 +7,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    cpus: 1,
-    webpackMemoryOptimizations: true,
-  },
-  webpack: (config) => {
-    // Replace puppeteer with a stub to prevent NFT from tracing Chromium and
-    // the full puppeteer package during `Collecting build traces` (which OOMs).
-    config.resolve.alias['puppeteer'] = path.resolve('./src/lib/puppeteer-stub.ts');
-    return config;
+  // Next.js 16 はデフォルトで Turbopack を使用
+  turbopack: {
+    resolveAlias: {
+      // Chromium トレースによる OOM を防ぐためスタブに差し替え
+      puppeteer: './src/lib/puppeteer-stub.ts',
+    },
   },
   outputFileTracingExcludes: {
     '*': [
