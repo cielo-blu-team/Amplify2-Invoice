@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY ?? '';
+const FIREBASE_API_KEY = (process.env.FIREBASE_API_KEY ?? '').trim();
 const FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
 
 function getSignInUrl(): string {
@@ -11,7 +11,13 @@ function getSignInUrl(): string {
 }
 
 export async function POST(request: Request) {
-  const { email, password } = await request.json();
+  let email: string, password: string;
+  try {
+    ({ email, password } = await request.json());
+  } catch (e) {
+    console.error('[login] request.json() failed:', e);
+    return NextResponse.json({ error: 'リクエストの解析に失敗しました' }, { status: 400 });
+  }
 
   if (!email || !password) {
     return NextResponse.json(
@@ -27,20 +33,39 @@ export async function POST(request: Request) {
     );
   }
 
-  // Firebase Auth REST API でメール/パスワード認証
-  const firebaseRes = await fetch(getSignInUrl(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, returnSecureToken: true }),
-  });
-
-  if (!firebaseRes.ok) {
-    const error = await firebaseRes.json();
-    const message = firebaseAuthErrorMessage(error?.error?.message);
-    return NextResponse.json({ error: message }, { status: 401 });
+  let firebaseRes: Response;
+  try {
+    // Firebase Auth REST API でメール/パスワード認証
+    firebaseRes = await fetch(getSignInUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    });
+  } catch (e) {
+    console.error('[login] Firebase fetch failed:', e);
+    return NextResponse.json({ error: 'Firebase への接続に失敗しました' }, { status: 500 });
   }
 
-  const { idToken, expiresIn } = await firebaseRes.json();
+  const rawBody = await firebaseRes.text();
+
+  if (!firebaseRes.ok) {
+    let errorCode: string | undefined;
+    try {
+      const errorJson = JSON.parse(rawBody);
+      errorCode = errorJson?.error?.message;
+    } catch (e) {
+      console.error('[login] Firebase error response is not JSON:', rawBody.slice(0, 200), e);
+    }
+    return NextResponse.json({ error: firebaseAuthErrorMessage(errorCode) }, { status: 401 });
+  }
+
+  let idToken: string, expiresIn: string;
+  try {
+    ({ idToken, expiresIn } = JSON.parse(rawBody));
+  } catch (e) {
+    console.error('[login] Firebase success response is not JSON:', rawBody.slice(0, 200), e);
+    return NextResponse.json({ error: '認証レスポンスの解析に失敗しました' }, { status: 500 });
+  }
 
   const res = NextResponse.json({ success: true, redirectUrl: '/' });
   res.cookies.set('firebase-id-token', idToken, {
