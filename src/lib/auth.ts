@@ -15,7 +15,12 @@ export type Action =
   | 'settings:read'
   | 'settings:update'
   | 'user:manage'
-  | 'audit-log:read';
+  | 'audit-log:read'
+  | 'expense:read'     // 経費閲覧（経理・管理者）
+  | 'expense:write'    // 経費作成・更新・削除（経理・管理者）
+  | 'expense:import'   // マネーフォワード取込（経理・管理者）
+  | 'expense:rule'     // 分類ルール管理（管理者のみ）
+  | 'pl:read';         // 収支管理閲覧（管理者のみ）
 
 // ロール別の権限マップ
 // user: 帳票作成・閲覧・更新のみ
@@ -45,6 +50,9 @@ export const permissions: Record<Role, Action[]> = {
     'settings:read',
     'settings:update',
     'audit-log:read',
+    'expense:read',
+    'expense:write',
+    'expense:import',
   ],
   admin: [
     'document:create',
@@ -61,6 +69,11 @@ export const permissions: Record<Role, Action[]> = {
     'settings:update',
     'user:manage',
     'audit-log:read',
+    'expense:read',
+    'expense:write',
+    'expense:import',
+    'expense:rule',
+    'pl:read',
   ],
 };
 

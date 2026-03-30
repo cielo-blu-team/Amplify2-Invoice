@@ -67,6 +67,8 @@ export const COLLECTIONS = {
   SEQUENCES: 'sequences',
   IDEMPOTENCY_KEYS: 'idempotencyKeys',
   PROJECTS: 'projects',
+  EXPENSES: 'expenses',
+  EXPENSE_RULES: 'expenseRules',
 } as const;
 
 // Firestore サブコレクション名

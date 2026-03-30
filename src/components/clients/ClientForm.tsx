@@ -113,14 +113,10 @@ export default function ClientForm({ initialData, onSubmit, loading = false }: C
     ) {
       newErrors.registrationNumber = '登録番号はT+13桁の数字で入力してください';
     }
-    if (!postalCode.trim()) newErrors.postalCode = '郵便番号を入力してください';
-    else if (!/^\d{3}-?\d{4}$/.test(postalCode)) {
+    if (postalCode.trim() && !/^\d{3}-?\d{4}$/.test(postalCode)) {
       newErrors.postalCode = '郵便番号の形式が正しくありません';
     }
-    if (!prefecture) newErrors.prefecture = '都道府県を選択してください';
-    if (!address.trim()) newErrors.address = '住所を入力してください';
-    if (!phone.trim()) newErrors.phone = '電話番号を入力してください';
-    else if (!/^[\d-]{10,15}$/.test(phone)) {
+    if (phone.trim() && !/^[\d-]{10,15}$/.test(phone)) {
       newErrors.phone = '電話番号の形式が正しくありません';
     }
 
@@ -140,11 +136,11 @@ export default function ClientForm({ initialData, onSubmit, loading = false }: C
         businessType === 'corporation' && registrationNumber
           ? registrationNumber
           : undefined,
-      postalCode,
-      prefecture,
-      address,
+      postalCode: postalCode || undefined,
+      prefecture: prefecture || undefined,
+      address: address || undefined,
       building: building || undefined,
-      phone,
+      phone: phone || undefined,
       fax: fax || undefined,
       email: email || undefined,
       contactPerson: contactPerson || undefined,
@@ -207,7 +203,7 @@ export default function ClientForm({ initialData, onSubmit, loading = false }: C
       <div className="space-y-4">
         <SectionHeading>所在地</SectionHeading>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="郵便番号" required error={errors.postalCode}>
+          <FormField label="郵便番号" error={errors.postalCode}>
             <Input
               placeholder="123-4567"
               value={postalCode}
@@ -215,7 +211,7 @@ export default function ClientForm({ initialData, onSubmit, loading = false }: C
               className={errors.postalCode ? 'border-red-400' : ''}
             />
           </FormField>
-          <FormField label="都道府県" required error={errors.prefecture}>
+          <FormField label="都道府県" error={errors.prefecture}>
             <Select value={prefecture} onValueChange={setPrefecture}>
               <SelectTrigger className={errors.prefecture ? 'border-red-400' : ''}>
                 <SelectValue placeholder="選択してください" />
@@ -228,7 +224,7 @@ export default function ClientForm({ initialData, onSubmit, loading = false }: C
             </Select>
           </FormField>
         </div>
-        <FormField label="市区町村・番地" required error={errors.address}>
+        <FormField label="市区町村・番地" error={errors.address}>
           <Input
             value={address}
             onChange={(e) => setAddress(e.currentTarget.value)}
@@ -249,7 +245,7 @@ export default function ClientForm({ initialData, onSubmit, loading = false }: C
       <div className="space-y-4">
         <SectionHeading>連絡先</SectionHeading>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="電話番号" required error={errors.phone}>
+          <FormField label="電話番号" error={errors.phone}>
             <Input
               value={phone}
               onChange={(e) => setPhone(e.currentTarget.value)}

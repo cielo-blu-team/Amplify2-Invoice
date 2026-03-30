@@ -25,6 +25,7 @@ const PAGE_TITLES: { pattern: RegExp | string; title: string }[] = [
   { pattern: /^\/projects\/[^/]+$/, title: '案件 詳細' },
   { pattern: '/projects',           title: '案件管理' },
   { pattern: '/payments',           title: '入金管理' },
+  { pattern: '/expenses',           title: '経費管理' },
   { pattern: '/audit-logs',         title: '監査ログ' },
   { pattern: '/settings',           title: '設定' },
 ];

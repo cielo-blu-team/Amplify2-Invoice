@@ -19,7 +19,7 @@ interface Props {
 }
 
 function fmt(n: number) { return '¥' + n.toLocaleString('ja-JP'); }
-function fmtM(n: number) { return '¥' + (n / 10000).toLocaleString('ja-JP') + '万'; }
+function fmtM(n: number) { return '¥' + n.toLocaleString('ja-JP'); }
 
 // ── Horizontal Bar ──────────────────────────────────────────────────
 function HBar({ value, max, color = 'bg-indigo-500' }: { value: number; max: number; color?: string }) {

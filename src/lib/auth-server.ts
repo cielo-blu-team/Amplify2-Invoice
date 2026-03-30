@@ -1,10 +1,14 @@
 import { cookies } from 'next/headers';
+import { getRoleFromClaims } from '@/lib/auth';
+import type { Role } from '@/types/user';
 
 interface FirebaseTokenClaims {
   sub: string;
   user_id?: string;
   email?: string;
   name?: string;
+  role?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -34,4 +38,12 @@ export async function getCurrentUserDisplayName(): Promise<string> {
   if (!token) return '不明なユーザー';
   const claims = decodeIdToken(token);
   return claims?.name ?? claims?.email ?? '不明なユーザー';
+}
+
+export async function getCurrentUserRole(): Promise<Role> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('firebase-id-token')?.value;
+  if (!token) return 'user';
+  const claims = decodeIdToken(token);
+  return getRoleFromClaims(claims ?? {});
 }

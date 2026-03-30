@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, BarChart2, FileText, Receipt,
   CheckSquare, Copy, Building2, FolderKanban,
-  CreditCard, ClipboardList, Settings, LogOut, Zap,
+  CreditCard, ClipboardList, Settings, LogOut, Zap, Wallet,
 } from 'lucide-react';
 
 type NavItem = { href: string; label: string; Icon: React.ElementType };
@@ -39,7 +39,8 @@ const navGroups: NavGroup[] = [
   {
     label: '財務管理',
     items: [
-      { href: '/payments', label: '入金管理', Icon: CreditCard },
+      { href: '/payments',  label: '入金管理', Icon: CreditCard },
+      { href: '/expenses',  label: '経費管理', Icon: Wallet },
     ],
   },
   {

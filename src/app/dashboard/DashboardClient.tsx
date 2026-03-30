@@ -70,13 +70,11 @@ export default function DashboardClient({ initialData }: Props) {
               </div>
             </div>
             <p className="text-2xl font-bold" style={{ color: '#0f0f1a' }}>
-              {latestMonth ? formatAmount(latestMonth.invoiceAmount) : '—'}
+              {formatAmount(latestMonth?.invoiceAmount ?? 0)}
             </p>
-            {latestMonth && (
-              <p className="text-xs mt-1" style={{ color: '#9098a8' }}>
-                入金済: {formatAmount(latestMonth.paidAmount)}
-              </p>
-            )}
+            <p className="text-xs mt-1" style={{ color: '#9098a8' }}>
+              入金済: {formatAmount(latestMonth?.paidAmount ?? 0)}
+            </p>
             <div className="mt-3 h-1 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }}>
               <div className="h-1 bg-blue-500 rounded-full" style={{ width: `${paidRatio}%` }} />
             </div>

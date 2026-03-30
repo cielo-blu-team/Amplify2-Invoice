@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,14 @@ import {
 } from '@/components/ui/select';
 import { showSuccess, showError } from '@/lib/toast';
 import { createProject } from '@/actions/project';
+import { listClients } from '@/actions/client';
+import type { Client } from '@/types';
 
 export default function ProjectNewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientError, setClientError] = useState('');
   const [form, setForm] = useState({
     projectName: '',
     clientName: '',
@@ -35,10 +39,30 @@ export default function ProjectNewPage() {
     notes: '',
   });
 
+  useEffect(() => {
+    listClients(undefined, 200).then((res) => {
+      if (res.success && res.data) setClients(res.data.items);
+    });
+  }, []);
+
   const set = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleClientSelect = (clientId: string) => {
+    const client = clients.find((c) => c.clientId === clientId);
+    setForm((prev) => ({
+      ...prev,
+      clientId,
+      clientName: client?.clientName ?? '',
+    }));
+    setClientError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.clientId) {
+      setClientError('取引先を選択してください');
+      return;
+    }
     setLoading(true);
     try {
       const result = await createProject({
@@ -77,6 +101,23 @@ export default function ProjectNewPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
+              <Label>取引先名 <span className="text-red-500">*</span></Label>
+              <Select value={form.clientId} onValueChange={handleClientSelect}>
+                <SelectTrigger className={clientError ? 'border-red-400' : ''}>
+                  <SelectValue placeholder="取引先を選択してください" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.clientId} value={c.clientId}>
+                      {c.clientName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {clientError && <p className="text-xs text-red-500">{clientError}</p>}
+            </div>
+
+            <div className="space-y-1.5">
               <Label>案件名 <span className="text-red-500">*</span></Label>
               <Input
                 value={form.projectName}
@@ -111,15 +152,6 @@ export default function ProjectNewPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>取引先名</Label>
-              <Input
-                value={form.clientName}
-                onChange={(e) => set('clientName', e.target.value)}
-                placeholder="取引先名を入力"
-              />
             </div>
 
             <div className="space-y-1.5">
