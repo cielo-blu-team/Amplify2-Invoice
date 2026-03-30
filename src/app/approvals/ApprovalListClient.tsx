@@ -21,6 +21,8 @@ import { approveDocument, rejectDocument } from '@/actions/approval';
 
 interface Props {
   initialData: { items: DocumentHeader[]; cursor?: string };
+  approverId: string;
+  approverName: string;
 }
 
 function formatDate(iso: string): string {
@@ -40,11 +42,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   invoice: '請求書',
 };
 
-// TODO: 実際の認証情報に差し替える
-const MOCK_APPROVER_ID = 'approver-001';
-const MOCK_APPROVER_NAME = '承認者 太郎';
-
-export default function ApprovalListClient({ initialData }: Props) {
+export default function ApprovalListClient({ initialData, approverId, approverName }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DocumentHeader[]>(
     initialData.items.filter((doc) => !doc.isDeleted && doc.status === 'pending_approval'),
@@ -57,7 +55,7 @@ export default function ApprovalListClient({ initialData }: Props) {
 
   const handleApprove = (doc: DocumentHeader) => {
     startTransition(async () => {
-      const res = await approveDocument(doc.documentId, MOCK_APPROVER_ID, MOCK_APPROVER_NAME);
+      const res = await approveDocument(doc.documentId, approverId, approverName);
       if (res.success) {
         showSuccess(`${doc.documentNumber} を承認しました`);
         setItems((prev) => prev.filter((d) => d.documentId !== doc.documentId));
@@ -84,8 +82,8 @@ export default function ApprovalListClient({ initialData }: Props) {
     startTransition(async () => {
       const res = await rejectDocument(
         target.documentId,
-        MOCK_APPROVER_ID,
-        MOCK_APPROVER_NAME,
+        approverId,
+        approverName,
         rejectComment,
       );
       if (res.success) {

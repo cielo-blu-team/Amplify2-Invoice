@@ -15,6 +15,6 @@ export async function convertToInvoice(
     `/api/mcp/documents/${args.documentId}/convert`,
     'POST',
     { dueDate: args.dueDate, createdBy: auth.userId },
-    auth.userId,
+    auth.token,
   );
 }

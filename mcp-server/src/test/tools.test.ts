@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockAuth = { userId: 'u1', email: 'u@e.com', role: 'admin' as const };
+const mockAuth = { userId: 'u1', email: 'u@e.com', role: 'admin' as const, token: 'test-token' };
 
 // mock fetch globally
 global.fetch = vi.fn();

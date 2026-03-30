@@ -25,6 +25,7 @@ export interface User {
   displayName: string;
   role: Role;
   slackUserId?: string;
+  slackTeamId?: string;
   notificationSettings: NotificationSettings;
   isActive: boolean;
   createdAt: string;

@@ -19,5 +19,5 @@ export async function updateClient(
   auth: AuthContext,
 ) {
   const { clientId, ...updates } = args;
-  return apiCall(`/api/mcp/clients/${clientId}`, 'PUT', updates, auth.userId);
+  return apiCall(`/api/mcp/clients/${clientId}`, 'PUT', updates, auth.token);
 }

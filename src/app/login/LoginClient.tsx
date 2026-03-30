@@ -122,9 +122,6 @@ export default function LoginClient() {
           <Suspense fallback={null}>
             <LoginForm />
           </Suspense>
-          <p className="text-xs text-zinc-500 text-center mt-5">
-            ※ 現在は開発モードです。Cognito統合は準備中です。
-          </p>
         </div>
       </div>
     </div>

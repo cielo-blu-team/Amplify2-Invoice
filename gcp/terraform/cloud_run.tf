@@ -72,6 +72,21 @@ resource "google_cloud_run_v2_service" "app" {
         }
       }
 
+      env {
+        name = "FIREBASE_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.firebase_api_key_secret
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "FIREBASE_AUTH_DOMAIN"
+        value = "${var.project_id}.firebaseapp.com"
+      }
+
       # ヘルスチェック
       startup_probe {
         http_get {

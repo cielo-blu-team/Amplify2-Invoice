@@ -29,5 +29,5 @@ export async function createInvoice(
     ...args,
     documentType: 'invoice',
     createdBy: auth.userId,
-  }, auth.userId);
+  }, auth.token);
 }

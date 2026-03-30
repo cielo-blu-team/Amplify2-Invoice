@@ -10,5 +10,5 @@ export async function getDocument(
   args: z.infer<typeof getDocumentSchema>,
   auth: AuthContext,
 ) {
-  return apiCall(`/api/mcp/documents/${args.documentId}`, 'GET', undefined, auth.userId);
+  return apiCall(`/api/mcp/documents/${args.documentId}`, 'GET', undefined, auth.token);
 }

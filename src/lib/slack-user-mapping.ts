@@ -1,23 +1,28 @@
-// SlackユーザーID ↔ CognitoユーザーID紐付け
-// DynamoDBのUsersテーブルにslackUserIdフィールドを追加して管理
+import * as userRepo from '@/repositories/user.repository';
 
 export interface SlackUserMapping {
-  cognitoUserId: string;
+  userId: string;
   slackUserId: string;
   slackTeamId: string;
 }
 
-// TODO: DynamoDBから取得
-export async function getSlackUserId(cognitoUserId: string): Promise<string | null> {
-  // 実装: UserRepositoryからslackUserIdを取得
-  return null;
+/**
+ * Firebase UID から Slack ユーザーID を取得する
+ */
+export async function getSlackUserId(firebaseUid: string): Promise<string | null> {
+  const user = await userRepo.getUserByFirebaseUid(firebaseUid);
+  return user?.slackUserId ?? null;
 }
 
+/**
+ * Firebase UID に Slack ユーザーID を紐付けて Firestore に保存する
+ */
 export async function linkSlackUser(
-  cognitoUserId: string,
+  firebaseUid: string,
   slackUserId: string,
-  slackTeamId: string
+  slackTeamId: string,
 ): Promise<void> {
-  // 実装: UserRepositoryでslackUserIdを保存
-  console.log(`[SlackMapping] ${cognitoUserId} → ${slackUserId}`);
+  const user = await userRepo.getUserByFirebaseUid(firebaseUid);
+  if (!user) throw new Error(`ユーザーが見つかりません: ${firebaseUid}`);
+  await userRepo.updateUser(user.userId, { slackUserId, slackTeamId });
 }

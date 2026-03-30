@@ -14,6 +14,6 @@ export async function generatePdf(
     `/api/mcp/documents/${args.documentId}/pdf`,
     'POST',
     undefined,
-    auth.userId,
+    auth.token,
   );
 }

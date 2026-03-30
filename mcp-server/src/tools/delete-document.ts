@@ -10,5 +10,5 @@ export async function deleteDocument(
   args: z.infer<typeof deleteDocumentSchema>,
   auth: AuthContext,
 ) {
-  return apiCall(`/api/mcp/documents/${args.documentId}`, 'DELETE', undefined, auth.userId);
+  return apiCall(`/api/mcp/documents/${args.documentId}`, 'DELETE', undefined, auth.token);
 }

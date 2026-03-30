@@ -27,5 +27,5 @@ export async function updateDocument(
   auth: AuthContext,
 ) {
   const { documentId, ...updates } = args;
-  return apiCall(`/api/mcp/documents/${documentId}`, 'PUT', updates, auth.userId);
+  return apiCall(`/api/mcp/documents/${documentId}`, 'PUT', updates, auth.token);
 }

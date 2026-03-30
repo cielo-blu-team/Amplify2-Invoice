@@ -14,6 +14,6 @@ export async function checkPayment(
     '/api/mcp/payments/check',
     'POST',
     { invoiceId: args.invoiceId, requestedBy: auth.userId },
-    auth.userId,
+    auth.token,
   );
 }

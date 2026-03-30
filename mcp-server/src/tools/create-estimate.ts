@@ -29,5 +29,5 @@ export async function createEstimate(
     ...args,
     documentType: 'estimate',
     createdBy: auth.userId,
-  }, auth.userId);
+  }, auth.token);
 }

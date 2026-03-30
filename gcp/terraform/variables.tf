@@ -50,3 +50,9 @@ variable "moneyforward_api_key_secret" {
   type        = string
   default     = "moneyforward-api-key"
 }
+
+variable "firebase_api_key_secret" {
+  description = "Firebase Web API キーを格納した Secret Manager シークレット名"
+  type        = string
+  default     = "firebase-api-key"
+}

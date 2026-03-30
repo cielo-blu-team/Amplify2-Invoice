@@ -82,3 +82,47 @@ describe('idempotency', () => {
     expect(result).toEqual({ version: 2 });
   });
 });
+
+describe('rbac', () => {
+  it('allows user role to call document:create', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'user' as const, token: 'tok' };
+    expect(() => authorize('document:create', auth)).not.toThrow();
+  });
+
+  it('denies user role from document:delete', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'user' as const, token: 'tok' };
+    expect(() => authorize('document:delete', auth)).toThrow();
+  });
+
+  it('denies user role from document:approve', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'user' as const, token: 'tok' };
+    expect(() => authorize('document:approve', auth)).toThrow();
+  });
+
+  it('allows accountant role to approve', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'accountant' as const, token: 'tok' };
+    expect(() => authorize('document:approve', auth)).not.toThrow();
+  });
+
+  it('allows admin role to delete', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'admin' as const, token: 'tok' };
+    expect(() => authorize('document:delete', auth)).not.toThrow();
+  });
+
+  it('denies user role from payment:reconcile', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'user' as const, token: 'tok' };
+    expect(() => authorize('payment:reconcile', auth)).toThrow();
+  });
+
+  it('allows access to unknown permission (open access)', async () => {
+    const { authorize } = await import('../middleware/rbac.js');
+    const auth = { userId: 'u1', email: 'u@e.com', role: 'user' as const, token: 'tok' };
+    expect(() => authorize('document:read', auth)).not.toThrow();
+  });
+});

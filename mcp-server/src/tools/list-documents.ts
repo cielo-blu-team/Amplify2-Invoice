@@ -33,5 +33,5 @@ export async function listDocuments(
 
   const query = params.toString();
   const path = `/api/mcp/documents${query ? `?${query}` : ''}`;
-  return apiCall(path, 'GET', undefined, auth.userId);
+  return apiCall(path, 'GET', undefined, auth.token);
 }

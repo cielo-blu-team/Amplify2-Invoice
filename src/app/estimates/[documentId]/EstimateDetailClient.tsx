@@ -25,11 +25,14 @@ import {
   duplicateDocument,
   sendDocument,
 } from '@/actions/document';
+import { requestApproval } from '@/actions/approval';
 import { cn } from '@/lib/utils';
 import type { DocumentHeader } from '@/types';
 
 interface Props {
   document: DocumentHeader;
+  userId: string;
+  userName: string;
 }
 
 function formatDate(iso: string): string {
@@ -44,7 +47,7 @@ function formatAmount(n: number): string {
   return n.toLocaleString('ja-JP') + ' 円';
 }
 
-export default function EstimateDetailClient({ document: doc }: Props) {
+export default function EstimateDetailClient({ document: doc, userId, userName }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -66,7 +69,18 @@ export default function EstimateDetailClient({ document: doc }: Props) {
     doc.status === 'confirmed' || doc.status === 'sent' || doc.status === 'approved';
 
   const handleRequestApproval = async () => {
-    showError('承認依頼機能は準備中です');
+    setLoading(true);
+    try {
+      const result = await requestApproval(doc.documentId, userId, userName);
+      if (!result.success) {
+        showError(result.error?.message ?? '承認依頼に失敗しました');
+        return;
+      }
+      showSuccess('承認依頼を送信しました');
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSend = async () => {
@@ -108,7 +122,7 @@ export default function EstimateDetailClient({ document: doc }: Props) {
   const handleDuplicate = async () => {
     setLoading(true);
     try {
-      const result = await duplicateDocument(doc.documentId, 'current-user');
+      const result = await duplicateDocument(doc.documentId, userId);
       if (!result.success) {
         showError(result.error?.message ?? '複製に失敗しました');
         return;
@@ -127,7 +141,7 @@ export default function EstimateDetailClient({ document: doc }: Props) {
     }
     setLoading(true);
     try {
-      const result = await convertToInvoice(doc.documentId, convertDueDate, 'current-user');
+      const result = await convertToInvoice(doc.documentId, convertDueDate, userId);
       if (!result.success) {
         showError(result.error?.message ?? '変換に失敗しました');
         return;

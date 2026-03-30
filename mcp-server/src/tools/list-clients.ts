@@ -19,5 +19,5 @@ export async function listClients(
 
   const query = params.toString();
   const path = `/api/mcp/clients${query ? `?${query}` : ''}`;
-  return apiCall(path, 'GET', undefined, auth.userId);
+  return apiCall(path, 'GET', undefined, auth.token);
 }

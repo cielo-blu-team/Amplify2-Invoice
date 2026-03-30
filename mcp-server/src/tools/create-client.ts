@@ -17,5 +17,5 @@ export async function createClient(
   args: z.infer<typeof createClientSchema>,
   auth: AuthContext,
 ) {
-  return apiCall('/api/mcp/clients', 'POST', { ...args, createdBy: auth.userId }, auth.userId);
+  return apiCall('/api/mcp/clients', 'POST', { ...args, createdBy: auth.userId }, auth.token);
 }

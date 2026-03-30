@@ -24,11 +24,15 @@ import {
   duplicateDocument,
   sendDocument,
 } from '@/actions/document';
+import { requestApproval } from '@/actions/approval';
+import { updatePaymentStatus } from '@/actions/payment';
 import { cn } from '@/lib/utils';
 import type { DocumentHeader } from '@/types';
 
 interface Props {
   document: DocumentHeader;
+  userId: string;
+  userName: string;
 }
 
 function formatDate(iso: string): string {
@@ -43,7 +47,7 @@ function formatAmount(n: number): string {
   return n.toLocaleString('ja-JP') + ' 円';
 }
 
-export default function InvoiceDetailClient({ document: doc }: Props) {
+export default function InvoiceDetailClient({ document: doc, userId, userName }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -63,7 +67,18 @@ export default function InvoiceDetailClient({ document: doc }: Props) {
   const canMarkPaid = doc.status === 'sent' || doc.status === 'overdue';
 
   const handleRequestApproval = async () => {
-    showError('承認依頼機能は準備中です');
+    setLoading(true);
+    try {
+      const result = await requestApproval(doc.documentId, userId, userName);
+      if (!result.success) {
+        showError(result.error?.message ?? '承認依頼に失敗しました');
+        return;
+      }
+      showSuccess('承認依頼を送信しました');
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSend = async () => {
@@ -105,7 +120,7 @@ export default function InvoiceDetailClient({ document: doc }: Props) {
   const handleDuplicate = async () => {
     setLoading(true);
     try {
-      const result = await duplicateDocument(doc.documentId, 'current-user');
+      const result = await duplicateDocument(doc.documentId, userId);
       if (!result.success) {
         showError(result.error?.message ?? '複製に失敗しました');
         return;
@@ -118,9 +133,19 @@ export default function InvoiceDetailClient({ document: doc }: Props) {
   };
 
   const handleMarkPaid = async () => {
-    // TODO: updatePaymentStatus action が実装されたら差し替える
-    showError('支払ステータス更新機能は準備中です');
-    setPaidOpen(false);
+    setLoading(true);
+    try {
+      const result = await updatePaymentStatus(doc.documentId, 'paid');
+      if (!result.success) {
+        showError(result.error?.message ?? '入金済み更新に失敗しました');
+        return;
+      }
+      showSuccess('入金済みに更新しました');
+      setPaidOpen(false);
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

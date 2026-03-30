@@ -1,5 +1,6 @@
-// TODO: 実際の集計実装時に document.repository の関数を直接インポートして使用する
-// import * as documentRepository from '@/repositories/document.repository';
+import { getFirestoreClient } from '@/repositories/_firestore-client';
+import { COLLECTIONS } from '@/lib/constants';
+import type { DocumentHeader } from '@/types';
 
 export interface DashboardData {
   monthlySales: MonthlySales[];
@@ -48,59 +49,140 @@ export interface RecentDocument {
 
 class DashboardService {
   async getDashboardData(): Promise<DashboardData> {
-    // TODO: 実際の集計実装（GSIクエリで月次集計）
-    // 現在はモックデータ返却（DBスキャンは高コストのため、将来的にElasticSearchまたはDynamoDB Aggregationで実装）
-    const today = new Date();
+    const db = getFirestoreClient();
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
 
-    return {
-      monthlySales: this.generateMonthlySales(6),
-      unpaidSummary: { totalUnpaid: 3850000, count: 8, overdue30: 1200000 },
-      winRate: { totalEstimates: 45, convertedToInvoice: 32, winRate: 71 },
-      overdueAlerts: [
-        {
-          documentId: 'DOC-001',
-          documentNumber: 'INV-20260201-001',
-          clientName: '株式会社サンプル',
-          dueDate: '2026-02-28',
-          totalAmount: 550000,
-          daysOverdue: Math.floor(
-            (today.getTime() - new Date('2026-02-28').getTime()) / 86400000
-          ),
-        },
-      ],
-      recentDocuments: [
-        {
-          documentId: 'DOC-002',
-          documentNumber: 'EST-20260325-001',
-          documentType: 'estimate',
-          clientName: '株式会社テスト',
-          status: 'draft',
-          totalAmount: 220000,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          documentId: 'DOC-003',
-          documentNumber: 'INV-20260320-005',
-          documentType: 'invoice',
-          clientName: '有限会社サンプル',
-          status: 'sent',
-          totalAmount: 110000,
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-        },
-      ],
+    // 6ヶ月前の日付
+    const sixMonthsAgo = new Date(now);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+
+    // 30日前の日付（延滞30日超判定）
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
+
+    const col = db.collection(COLLECTIONS.DOCUMENTS);
+
+    // 並列でクエリ実行
+    const [recentSnap, unpaidSnap, overdueSnap, estimatesSnap] = await Promise.all([
+      // 最近の帳票（全種類、直近20件）
+      col.where('isDeleted', '==', false).orderBy('createdAt', 'desc').limit(20).get(),
+      // 未入金の請求書（sent）
+      col
+        .where('isDeleted', '==', false)
+        .where('documentType', '==', 'invoice')
+        .where('status', '==', 'sent')
+        .get(),
+      // 延滞請求書
+      col
+        .where('isDeleted', '==', false)
+        .where('documentType', '==', 'invoice')
+        .where('status', '==', 'overdue')
+        .get(),
+      // 見積書（受注率計算用）
+      col
+        .where('isDeleted', '==', false)
+        .where('documentType', '==', 'estimate')
+        .get(),
+    ]);
+
+    const allRecent = recentSnap.docs.map(
+      (d) => ({ ...d.data(), documentId: d.id }) as DocumentHeader,
+    );
+    const unpaidDocs = unpaidSnap.docs.map(
+      (d) => ({ ...d.data(), documentId: d.id }) as DocumentHeader,
+    );
+    const overdueDocs = overdueSnap.docs.map(
+      (d) => ({ ...d.data(), documentId: d.id }) as DocumentHeader,
+    );
+    const estimateDocs = estimatesSnap.docs.map(
+      (d) => ({ ...d.data(), documentId: d.id }) as DocumentHeader,
+    );
+
+    // --- 月次売上（過去6ヶ月の請求書集計） ---
+    const invoiceDocs = allRecent.filter(
+      (d) => d.documentType === 'invoice' && d.issueDate >= sixMonthsAgoStr,
+    );
+    const monthlySales = this.aggregateMonthlySales(invoiceDocs, 6);
+
+    // --- 未入金サマリー ---
+    const totalUnpaid = unpaidDocs.reduce((s, d) => s + d.totalAmount, 0);
+    const overdue30 = unpaidDocs
+      .filter((d) => d.dueDate && d.dueDate <= thirtyDaysAgoStr)
+      .reduce((s, d) => s + d.totalAmount, 0);
+    const unpaidSummary: UnpaidSummary = {
+      totalUnpaid,
+      count: unpaidDocs.length,
+      overdue30,
     };
+
+    // --- 受注率 ---
+    const convertedCount = estimateDocs.filter(
+      (d) => d.status === 'converted' || d.status === 'approved',
+    ).length;
+    const winRate: WinRateData = {
+      totalEstimates: estimateDocs.length,
+      convertedToInvoice: convertedCount,
+      winRate:
+        estimateDocs.length > 0
+          ? Math.round((convertedCount / estimateDocs.length) * 100)
+          : 0,
+    };
+
+    // --- 延滞アラート ---
+    const overdueAlerts: OverdueAlert[] = overdueDocs
+      .filter((d) => d.dueDate)
+      .map((d) => ({
+        documentId: d.documentId,
+        documentNumber: d.documentNumber,
+        clientName: d.clientName,
+        dueDate: d.dueDate!,
+        totalAmount: d.totalAmount,
+        daysOverdue: Math.floor(
+          (now.getTime() - new Date(d.dueDate!).getTime()) / 86400000,
+        ),
+      }))
+      .sort((a, b) => b.daysOverdue - a.daysOverdue)
+      .slice(0, 10);
+
+    // --- 最近の帳票 ---
+    const recentDocuments: RecentDocument[] = allRecent.slice(0, 10).map((d) => ({
+      documentId: d.documentId,
+      documentNumber: d.documentNumber,
+      documentType: d.documentType,
+      clientName: d.clientName,
+      status: d.status,
+      totalAmount: d.totalAmount,
+      createdAt: d.createdAt,
+    }));
+
+    return { monthlySales, unpaidSummary, winRate, overdueAlerts, recentDocuments };
   }
 
-  private generateMonthlySales(months: number): MonthlySales[] {
-    const result: MonthlySales[] = [];
+  private aggregateMonthlySales(invoices: DocumentHeader[], months: number): MonthlySales[] {
+    const map = new Map<string, { invoiceAmount: number; paidAmount: number }>();
+
+    // 過去N ヶ月分の月を初期化
+    const now = new Date();
     for (let i = months - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const invoiceAmount = Math.floor(Math.random() * 2000000 + 500000);
-      result.push({ month, invoiceAmount, paidAmount: Math.floor(invoiceAmount * 0.8) });
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      map.set(key, { invoiceAmount: 0, paidAmount: 0 });
     }
-    return result;
+
+    for (const doc of invoices) {
+      const month = doc.issueDate.slice(0, 7);
+      if (!map.has(month)) continue;
+      const entry = map.get(month)!;
+      entry.invoiceAmount += doc.totalAmount;
+      if (doc.status === 'paid') {
+        entry.paidAmount += doc.totalAmount;
+      }
+    }
+
+    return Array.from(map.entries()).map(([month, v]) => ({ month, ...v }));
   }
 }
 

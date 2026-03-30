@@ -1,7 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 import { verifyJwt } from './middleware/auth.js';
 import { checkRateLimit } from './middleware/rate-limit.js';
+import { checkIdempotency, saveIdempotency } from './middleware/idempotency.js';
+import { authorize } from './middleware/rbac.js';
 import { createErrorResponse } from './errors.js';
 
 import { createEstimate, createEstimateSchema } from './tools/create-estimate.js';
@@ -25,18 +29,57 @@ const server = new McpServer({
   version: '1.0.0',
 });
 
-type ToolFn<T> = (args: T, auth: ReturnType<typeof verifyJwt> extends Promise<infer R> ? R : never) => Promise<unknown>;
+type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+type ToolFn<T> = (args: T, auth: Awaited<ReturnType<typeof verifyJwt>>) => Promise<unknown>;
 
-function withAuth<T>(toolFn: ToolFn<T>) {
-  return async (args: T, extra: Record<string, unknown>) => {
+function withAuth<T>(toolFn: ToolFn<T>, permission?: string) {
+  return async (args: T, extra: Extra) => {
     try {
-      const authInfo = extra?.authInfo as { token?: string } | undefined;
-      const token = authInfo?.token ?? process.env.DEV_TOKEN;
+      const token = extra.authInfo?.token ?? process.env['DEV_TOKEN'];
       const auth = await verifyJwt(token ?? '');
       const rl = checkRateLimit(auth.userId);
       if (!rl.allowed) {
         throw createErrorResponse('INTERNAL_ERROR', 'レート制限超過');
       }
+      if (permission) authorize(permission, auth);
+      // 冪等性チェック（呼び出し元が idempotencyKey を渡した場合）
+      const idempotencyKey = (args as Record<string, unknown>)['idempotencyKey'] as string | undefined;
+      if (idempotencyKey) {
+        const cached = await checkIdempotency(idempotencyKey);
+        if (cached !== null) {
+          return {
+            content: [{ type: 'text' as const, text: JSON.stringify(cached) }],
+          };
+        }
+      }
+      const result = await toolFn(args, auth);
+      if (idempotencyKey) {
+        await saveIdempotency(idempotencyKey, result);
+      }
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+      };
+    } catch (e: unknown) {
+      const err = e as { error?: unknown } | null;
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(err?.error ?? e) }],
+        isError: true,
+      };
+    }
+  };
+}
+
+// 読み取り専用ツール（idempotencyKey 不要）
+function withAuthReadOnly<T>(toolFn: ToolFn<T>, permission?: string) {
+  return async (args: T, extra: Extra) => {
+    try {
+      const token = extra.authInfo?.token ?? process.env['DEV_TOKEN'];
+      const auth = await verifyJwt(token ?? '');
+      const rl = checkRateLimit(auth.userId);
+      if (!rl.allowed) {
+        throw createErrorResponse('INTERNAL_ERROR', 'レート制限超過');
+      }
+      if (permission) authorize(permission, auth);
       const result = await toolFn(args, auth);
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
@@ -51,22 +94,101 @@ function withAuth<T>(toolFn: ToolFn<T>) {
   };
 }
 
-// Register all 15 tools
-server.tool('create-estimate', createEstimateSchema, withAuth(createEstimate));
-server.tool('create-invoice', createInvoiceSchema, withAuth(createInvoice));
-server.tool('convert-to-invoice', convertToInvoiceSchema, withAuth(convertToInvoice));
-server.tool('get-document', getDocumentSchema, withAuth(getDocument));
-server.tool('list-documents', listDocumentsSchema, withAuth(listDocuments));
-server.tool('update-document', updateDocumentSchema, withAuth(updateDocument));
-server.tool('delete-document', deleteDocumentSchema, withAuth(deleteDocument));
-server.tool('generate-pdf', generatePdfSchema, withAuth(generatePdf));
-server.tool('update-status', updateStatusSchema, withAuth(updateStatus));
-server.tool('approve-document', approveDocumentSchema, withAuth(approveDocument));
-server.tool('list-clients', listClientsSchema, withAuth(listClients));
-server.tool('create-client', createClientSchema, withAuth(createClient));
-server.tool('update-client', updateClientSchema, withAuth(updateClient));
-server.tool('check-payment', checkPaymentSchema, withAuth(checkPayment));
-server.tool('get-dashboard', getDashboardSchema, withAuth(getDashboard));
+// ── 帳票操作ツール ───────────────────────────────────────────────
+
+server.registerTool('create_estimate', {
+  description: '見積書を新規作成する。取引先名・件名・明細行を指定してdraft状態の見積書を作成し、帳票IDとサマリを返す。',
+  inputSchema: createEstimateSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(createEstimate, 'document:create'));
+
+server.registerTool('create_invoice', {
+  description: '請求書を新規作成する。取引先名・件名・支払期限・明細行を指定してdraft状態の請求書を作成し、帳票IDとサマリを返す。',
+  inputSchema: createInvoiceSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(createInvoice, 'document:create'));
+
+server.registerTool('convert_to_invoice', {
+  description: '見積書を請求書に変換する。見積書IDと支払期限を指定して新しい請求書を生成する。元の見積書は confirmed 状態になる。',
+  inputSchema: convertToInvoiceSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(convertToInvoice, 'document:create'));
+
+server.registerTool('get_document', {
+  description: '帳票IDを指定して見積書または請求書の詳細情報を取得する。',
+  inputSchema: getDocumentSchema,
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+}, withAuthReadOnly(getDocument));
+
+server.registerTool('list_documents', {
+  description: '帳票一覧を取得する。種別・ステータス・取引先名・期間でフィルタリング可。カーソルベースのページネーション対応。',
+  inputSchema: listDocumentsSchema,
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+}, withAuthReadOnly(listDocuments));
+
+server.registerTool('update_document', {
+  description: 'draft状態の帳票の件名・明細行・備考などを更新する。pending_approval以降のステータスでは更新不可。',
+  inputSchema: updateDocumentSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(updateDocument, 'document:create'));
+
+server.registerTool('delete_document', {
+  description: 'draft状態の帳票を論理削除する。pending_approval以降のステータスではSTATUS_CONSTRAINT_ERRORを返す。adminロールのみ実行可。',
+  inputSchema: deleteDocumentSchema,
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+}, withAuth(deleteDocument, 'document:delete'));
+
+server.registerTool('generate_pdf', {
+  description: '帳票IDを指定してPDFを生成またはキャッシュ済みPDFのURLを返す。approved以降のステータスが必要。',
+  inputSchema: generatePdfSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+}, withAuth(generatePdf));
+
+server.registerTool('update_status', {
+  description: '帳票のステータスを遷移させる。sent/cancelled 遷移は accountant/admin ロールのみ。無効な遷移はINVALID_STATUSエラーを返す。',
+  inputSchema: updateStatusSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(updateStatus));
+
+server.registerTool('approve_document', {
+  description: '帳票を承認または否認する。accountant/adminロールのみ実行可。作成者自身は承認不可（四眼原則）。',
+  inputSchema: approveDocumentSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(approveDocument, 'document:approve'));
+
+// ── 取引先操作ツール ──────────────────────────────────────────────
+
+server.registerTool('list_clients', {
+  description: '取引先一覧を取得する。名前の部分一致フィルタとカーソルベースのページネーション対応。',
+  inputSchema: listClientsSchema,
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+}, withAuthReadOnly(listClients));
+
+server.registerTool('create_client', {
+  description: '新しい取引先を登録する。名前は必須。メール・電話・住所・担当者名などは任意。accountant/adminロールのみ実行可。',
+  inputSchema: createClientSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(createClient, 'client:create'));
+
+server.registerTool('update_client', {
+  description: '取引先IDを指定して取引先情報を更新する。指定したフィールドのみ更新される。accountant/adminロールのみ実行可。',
+  inputSchema: updateClientSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(updateClient, 'client:update'));
+
+// ── 支払・ダッシュボードツール ────────────────────────────────────
+
+server.registerTool('check_payment', {
+  description: '請求書IDを指定して入金状況を照合する。銀行データとの突合結果を返す。accountant/adminロールのみ実行可。',
+  inputSchema: checkPaymentSchema,
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, withAuth(checkPayment, 'payment:reconcile'));
+
+server.registerTool('get_dashboard', {
+  description: '期間を指定して売上・未収・帳票件数などのダッシュボード集計データを取得する。',
+  inputSchema: getDashboardSchema,
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+}, withAuthReadOnly(getDashboard));
 
 async function main() {
   const transport = new StdioServerTransport();

@@ -17,5 +17,5 @@ export async function getDashboard(
 
   const query = params.toString();
   const path = `/api/mcp/dashboard${query ? `?${query}` : ''}`;
-  return apiCall(path, 'GET', undefined, auth.userId);
+  return apiCall(path, 'GET', undefined, auth.token);
 }

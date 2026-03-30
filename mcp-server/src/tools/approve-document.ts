@@ -17,6 +17,6 @@ export async function approveDocument(
     `/api/mcp/documents/${documentId}/approve`,
     'POST',
     { ...body, approverId: auth.userId, approverName: auth.email },
-    auth.userId,
+    auth.token,
   );
 }
