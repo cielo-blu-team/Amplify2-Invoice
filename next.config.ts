@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // firebase-admin / @google-cloud は Turbopack でバンドルせず Node.js の require() を使う
+  serverExternalPackages: [
+    'firebase-admin',
+    '@google-cloud/firestore',
+    '@google-cloud/storage',
+    '@google-cloud/functions-framework',
+  ],
   // Next.js 16 はデフォルトで Turbopack を使用
   turbopack: {
     resolveAlias: {
@@ -18,8 +25,6 @@ const nextConfig: NextConfig = {
     '*': [
       'puppeteer/**/*',
       'puppeteer-core/**/*',
-      '@google-cloud/**/*',
-      'firebase-admin/**/*',
       'vitest/**/*',
       'playwright/**/*',
       '@playwright/**/*',
