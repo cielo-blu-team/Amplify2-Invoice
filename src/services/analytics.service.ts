@@ -1,4 +1,7 @@
-// 分析サービス（現在はモックデータ。将来的にDynamoDB集計クエリに差し替え）
+import { getFirestoreClient } from '@/repositories/_firestore-client';
+import { COLLECTIONS } from '@/lib/constants';
+import type { DocumentHeader } from '@/types';
+import type { Project } from '@/types';
 
 export interface ClientAnalytics {
   clientId: string;
@@ -31,8 +34,17 @@ export interface OverallAnalytics {
   monthlyTrend: { month: string; invoiced: number; paid: number }[];
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  in_progress: '進行中', planning: '計画中', completed: '完了', suspended: '中断', lost: '失注',
+};
+const STATUS_COLORS: Record<string, string> = {
+  in_progress: '#6366f1', planning: '#94a3b8', completed: '#22c55e', suspended: '#f59e0b', lost: '#ef4444',
+};
+const PRIORITY_LABELS: Record<string, string> = { high: '高', medium: '中', low: '低' };
+const PRIORITY_COLORS: Record<string, string> = { high: '#ef4444', medium: '#f59e0b', low: '#94a3b8' };
+
 class AnalyticsService {
-  private months(n: number): string[] {
+  private monthKeys(n: number): string[] {
     const result: string[] = [];
     for (let i = n - 1; i >= 0; i--) {
       const d = new Date();
@@ -43,67 +55,176 @@ class AnalyticsService {
   }
 
   async getClientAnalytics(): Promise<ClientAnalytics[]> {
-    const clients = [
-      { clientId: 'c1', clientName: '株式会社テクノソリューション', totalInvoiced: 8500000, totalPaid: 8200000, invoiceCount: 24, estimateCount: 30 },
-      { clientId: 'c2', clientName: '有限会社グローバルトレード', totalInvoiced: 6200000, totalPaid: 5100000, invoiceCount: 18, estimateCount: 22 },
-      { clientId: 'c3', clientName: 'ＡＢＣ商事株式会社', totalInvoiced: 4800000, totalPaid: 4800000, invoiceCount: 12, estimateCount: 15 },
-      { clientId: 'c4', clientName: '株式会社フューチャーワークス', totalInvoiced: 3600000, totalPaid: 2900000, invoiceCount: 10, estimateCount: 14 },
-      { clientId: 'c5', clientName: '合同会社デジタルクリエイト', totalInvoiced: 2900000, totalPaid: 2900000, invoiceCount: 8, estimateCount: 9 },
-      { clientId: 'c6', clientName: '株式会社イノベーションラボ', totalInvoiced: 2200000, totalPaid: 1800000, invoiceCount: 7, estimateCount: 12 },
-      { clientId: 'c7', clientName: 'サンプル工業株式会社', totalInvoiced: 1800000, totalPaid: 1800000, invoiceCount: 5, estimateCount: 6 },
-      { clientId: 'c8', clientName: '株式会社ネクストステップ', totalInvoiced: 1200000, totalPaid: 800000, invoiceCount: 4, estimateCount: 8 },
-    ];
+    const db = getFirestoreClient();
 
-    const dates = ['2026-03-15', '2026-03-20', '2026-03-10', '2026-02-28', '2026-03-22', '2026-03-01', '2026-02-15', '2026-03-18'];
+    // 全請求書・見積書を取得
+    const snap = await db
+      .collection(COLLECTIONS.DOCUMENTS)
+      .where('isDeleted', '==', false)
+      .get();
 
-    return clients.map((c, i) => ({
-      ...c,
-      unpaid: c.totalInvoiced - c.totalPaid,
-      paymentRate: Math.round((c.totalPaid / c.totalInvoiced) * 100),
-      winRate: Math.round((c.invoiceCount / c.estimateCount) * 100),
-      lastTransactionDate: dates[i],
-    }));
+    const docs = snap.docs.map((d) => ({ ...d.data(), documentId: d.id }) as DocumentHeader);
+
+    // clientId ごとに集計
+    const map = new Map<string, {
+      clientName: string;
+      totalInvoiced: number;
+      totalPaid: number;
+      invoiceCount: number;
+      estimateCount: number;
+      lastDate: string;
+    }>();
+
+    for (const doc of docs) {
+      if (!map.has(doc.clientId)) {
+        map.set(doc.clientId, {
+          clientName: doc.clientName,
+          totalInvoiced: 0,
+          totalPaid: 0,
+          invoiceCount: 0,
+          estimateCount: 0,
+          lastDate: doc.issueDate,
+        });
+      }
+      const entry = map.get(doc.clientId)!;
+      entry.clientName = doc.clientName;
+      if (doc.issueDate > entry.lastDate) entry.lastDate = doc.issueDate;
+
+      if (doc.documentType === 'invoice') {
+        entry.totalInvoiced += doc.totalAmount;
+        if (doc.status === 'paid') entry.totalPaid += doc.totalAmount;
+        entry.invoiceCount++;
+      } else if (doc.documentType === 'estimate') {
+        entry.estimateCount++;
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([clientId, e]) => ({
+        clientId,
+        clientName: e.clientName,
+        totalInvoiced: e.totalInvoiced,
+        totalPaid: e.totalPaid,
+        unpaid: e.totalInvoiced - e.totalPaid,
+        paymentRate: e.totalInvoiced > 0 ? Math.round((e.totalPaid / e.totalInvoiced) * 100) : 0,
+        invoiceCount: e.invoiceCount,
+        estimateCount: e.estimateCount,
+        winRate: e.estimateCount > 0 ? Math.round((e.invoiceCount / e.estimateCount) * 100) : 0,
+        lastTransactionDate: e.lastDate,
+      }))
+      .sort((a, b) => b.totalInvoiced - a.totalInvoiced);
   }
 
   async getProjectAnalytics(): Promise<ProjectAnalytics> {
-    const months = this.months(6);
+    const db = getFirestoreClient();
+    const months = this.monthKeys(6);
+
+    const snap = await db
+      .collection(COLLECTIONS.PROJECTS)
+      .where('isDeleted', '==', false)
+      .get();
+
+    const projects = snap.docs.map((d) => ({ ...d.data(), projectId: d.id }) as Project);
+
+    // ステータス分布
+    const statusCount = new Map<string, number>();
+    const priorityCount = new Map<string, number>();
+    const assigneeMap = new Map<string, { count: number; totalBudget: number }>();
+    const monthlyCount = new Map<string, number>(months.map((m) => [m, 0]));
+
+    for (const p of projects) {
+      statusCount.set(p.status, (statusCount.get(p.status) ?? 0) + 1);
+      priorityCount.set(p.priority, (priorityCount.get(p.priority) ?? 0) + 1);
+
+      const assignee = p.assignedTo ?? '未割当';
+      const existing = assigneeMap.get(assignee) ?? { count: 0, totalBudget: 0 };
+      assigneeMap.set(assignee, {
+        count: existing.count + 1,
+        totalBudget: existing.totalBudget + (p.budget ?? 0),
+      });
+
+      const month = p.createdAt?.slice(0, 7);
+      if (month && monthlyCount.has(month)) {
+        monthlyCount.set(month, (monthlyCount.get(month) ?? 0) + 1);
+      }
+    }
+
+    const totalBudget = projects.reduce((s, p) => s + (p.budget ?? 0), 0);
+
     return {
-      statusDistribution: [
-        { status: 'in_progress', label: '進行中', count: 12, color: '#6366f1' },
-        { status: 'planning',    label: '計画中', count: 8,  color: '#94a3b8' },
-        { status: 'completed',   label: '完了',   count: 20, color: '#22c55e' },
-        { status: 'suspended',   label: '中断',   count: 3,  color: '#f59e0b' },
-        { status: 'lost',        label: '失注',   count: 5,  color: '#ef4444' },
-      ],
-      priorityDistribution: [
-        { priority: 'high',   label: '高', count: 15, color: '#ef4444' },
-        { priority: 'medium', label: '中', count: 22, color: '#f59e0b' },
-        { priority: 'low',    label: '低', count: 11, color: '#94a3b8' },
-      ],
-      assigneeStats: [
-        { assignedTo: '山田 太郎', count: 14, totalBudget: 12500000 },
-        { assignedTo: '佐藤 花子', count: 11, totalBudget: 9800000 },
-        { assignedTo: '鈴木 一郎', count: 8,  totalBudget: 7200000 },
-        { assignedTo: '田中 美香', count: 7,  totalBudget: 5600000 },
-        { assignedTo: '未割当',    count: 8,  totalBudget: 3200000 },
-      ],
-      budgetSummary: { totalBudget: 38300000, avgBudget: 1596000, projectCount: 48 },
-      monthlyCreated: months.map((month, i) => ({ month, count: [4, 7, 3, 9, 5, 6][i] ?? 4 })),
+      statusDistribution: Array.from(statusCount.entries()).map(([status, count]) => ({
+        status, label: STATUS_LABELS[status] ?? status, count, color: STATUS_COLORS[status] ?? '#94a3b8',
+      })),
+      priorityDistribution: Array.from(priorityCount.entries()).map(([priority, count]) => ({
+        priority, label: PRIORITY_LABELS[priority] ?? priority, count, color: PRIORITY_COLORS[priority] ?? '#94a3b8',
+      })),
+      assigneeStats: Array.from(assigneeMap.entries())
+        .map(([assignedTo, v]) => ({ assignedTo, ...v }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
+      budgetSummary: {
+        totalBudget,
+        avgBudget: projects.length > 0 ? Math.round(totalBudget / projects.length) : 0,
+        projectCount: projects.length,
+      },
+      monthlyCreated: months.map((month) => ({ month, count: monthlyCount.get(month) ?? 0 })),
     };
   }
 
   async getOverallAnalytics(): Promise<OverallAnalytics> {
-    const months = this.months(6);
+    const db = getFirestoreClient();
+    const months = this.monthKeys(6);
+    const sixMonthsAgo = months[0];
+
+    const [invoiceSnap, clientSnap, projectSnap] = await Promise.all([
+      db.collection(COLLECTIONS.DOCUMENTS)
+        .where('isDeleted', '==', false)
+        .where('documentType', '==', 'invoice')
+        .get(),
+      db.collection(COLLECTIONS.CLIENTS).where('isDeleted', '==', false).get(),
+      db.collection(COLLECTIONS.PROJECTS).where('isDeleted', '==', false).get(),
+    ]);
+
+    const invoices = invoiceSnap.docs.map(
+      (d) => ({ ...d.data(), documentId: d.id }) as DocumentHeader,
+    );
+
+    let totalRevenue = 0;
+    let totalPaid = 0;
+    const monthlyMap = new Map<string, { invoiced: number; paid: number }>(
+      months.map((m) => [m, { invoiced: 0, paid: 0 }]),
+    );
+
+    for (const inv of invoices) {
+      totalRevenue += inv.totalAmount;
+      if (inv.status === 'paid') totalPaid += inv.totalAmount;
+
+      const month = inv.issueDate?.slice(0, 7);
+      if (month && monthlyMap.has(month)) {
+        const entry = monthlyMap.get(month)!;
+        entry.invoiced += inv.totalAmount;
+        if (inv.status === 'paid') entry.paid += inv.totalAmount;
+      }
+    }
+
+    const paidInvoices = invoices.filter((i) => i.totalAmount > 0);
+    const avgPaymentRate =
+      paidInvoices.length > 0
+        ? Math.round(
+            (paidInvoices.filter((i) => i.status === 'paid').length / paidInvoices.length) * 100,
+          )
+        : 0;
+
     return {
-      totalRevenue: 31200000,
-      totalPaid: 27600000,
-      totalUnpaid: 3600000,
-      totalClients: 32,
-      totalProjects: 48,
-      avgPaymentRate: 88,
-      monthlyTrend: months.map((month, i) => {
-        const invoiced = [4200000, 5800000, 3900000, 6100000, 5200000, 6000000][i];
-        return { month, invoiced, paid: Math.floor(invoiced * [0.9, 0.82, 1.0, 0.78, 0.88, 0.92][i]) };
+      totalRevenue,
+      totalPaid,
+      totalUnpaid: totalRevenue - totalPaid,
+      totalClients: clientSnap.size,
+      totalProjects: projectSnap.size,
+      avgPaymentRate,
+      monthlyTrend: months.map((month) => {
+        const e = monthlyMap.get(month) ?? { invoiced: 0, paid: 0 };
+        return { month, invoiced: e.invoiced, paid: e.paid };
       }),
     };
   }

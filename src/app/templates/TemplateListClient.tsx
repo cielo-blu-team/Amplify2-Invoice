@@ -27,38 +27,9 @@ const DOCUMENT_TYPE_BADGE_CLASS: Record<DocumentTemplate['documentType'], string
   both: 'bg-violet-100 text-violet-800',
 };
 
-const MOCK_TEMPLATES: DocumentTemplate[] = [
-  {
-    templateId: 'mock-1',
-    name: 'Webサイト制作 基本テンプレート',
-    documentType: 'estimate',
-    subject: 'Webサイト制作のご見積',
-    lineItems: [
-      { description: 'デザイン費', quantity: 1, unitPrice: 200000, taxRate: 10 },
-      { description: '実装費', quantity: 1, unitPrice: 300000, taxRate: 10 },
-    ],
-    createdBy: 'system',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    templateId: 'mock-2',
-    name: '月次保守テンプレート',
-    documentType: 'invoice',
-    subject: '月次保守費用のご請求',
-    lineItems: [
-      { description: '保守費', quantity: 1, unitPrice: 50000, taxRate: 10 },
-    ],
-    createdBy: 'system',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
 export default function TemplateListClient({ initialTemplates }: Props) {
   const router = useRouter();
-  const templates = initialTemplates.length > 0 ? initialTemplates : MOCK_TEMPLATES;
-  const [items, setItems] = useState<DocumentTemplate[]>(templates);
+  const [items, setItems] = useState<DocumentTemplate[]>(initialTemplates);
   const [deleteTarget, setDeleteTarget] = useState<DocumentTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
