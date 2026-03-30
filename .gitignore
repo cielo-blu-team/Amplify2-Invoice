@@ -37,3 +37,8 @@ amplify/outputs/
 coverage/
 test-results/
 playwright-report/
+
+# Terraform
+gcp/terraform/terraform.tfvars
+gcp/terraform/.terraform/
+gcp/terraform/*.tfstate*

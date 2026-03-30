@@ -14,7 +14,7 @@ terraform {
 
   # Terraform state を Cloud Storage で管理
   backend "gcs" {
-    bucket = "invoice-terraform-state"
+    bucket = "courage-invoice-terraform-state"
     prefix = "terraform/state"
   }
 }

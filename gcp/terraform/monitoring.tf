@@ -52,36 +52,17 @@ resource "google_logging_metric" "document_created" {
 }
 
 # ============================================================
-# アラートポリシー（SNS → Slack 相当: Webhook 通知）
+# アラートポリシー
+# 注意: Slack 通知チャンネルは Console から手動設定（auth_token が必要なため）
 # ============================================================
 
-# 通知チャンネル（Slack Webhook）
-resource "google_monitoring_notification_channel" "slack" {
-  project      = var.project_id
-  display_name = "Slack アラート通知"
-  type         = "slack"
-
-  labels = {
-    # Slack Webhook URL は Secret Manager で管理し、
-    # Cloud Monitoring の通知チャンネル設定で参照する
-    channel_name = "#invoice-alerts"
-  }
-
-  # 注意: Slack 統合は Google Cloud Console から手動設定が必要
-  # または terraform で auth_token を設定
-  sensitive_labels {
-    auth_token = "" # Secret Manager から取得: data.google_secret_manager_secret_version.slack_token
-  }
-}
-
-# エラー率アラート（CloudWatch HighErrorRate 相当）
 resource "google_monitoring_alert_policy" "high_error_rate" {
   project      = var.project_id
   display_name = "高エラー率アラート"
   combiner     = "OR"
 
   conditions {
-    display_name = "エラー率が5%超過"
+    display_name = "エラー率が5件/分超過"
 
     condition_threshold {
       filter          = "metric.type=\"logging.googleapis.com/user/invoice/error_rate\" resource.type=\"cloud_run_revision\""
@@ -96,14 +77,11 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
     }
   }
 
-  notification_channels = [google_monitoring_notification_channel.slack.name]
-
   alert_strategy {
     auto_close = "604800s"
   }
 }
 
-# PDF 生成失敗アラート
 resource "google_monitoring_alert_policy" "pdf_generation_failure" {
   project      = var.project_id
   display_name = "PDF生成失敗アラート"
@@ -124,8 +102,6 @@ resource "google_monitoring_alert_policy" "pdf_generation_failure" {
       }
     }
   }
-
-  notification_channels = [google_monitoring_notification_channel.slack.name]
 
   alert_strategy {
     auto_close = "604800s"

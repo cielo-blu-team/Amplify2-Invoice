@@ -16,7 +16,7 @@ resource "google_storage_bucket" "functions_source" {
 
 # 1. notification-scheduler（毎朝9:00 — 支払期限アラート）
 resource "google_storage_bucket_object" "notification_scheduler_source" {
-  name   = "notification-scheduler-${filemd5("${path.module}/../../gcp/functions/notification-scheduler/index.ts")}.zip"
+  name   = "notification-scheduler-${filemd5("${path.module}/../../gcp/functions/notification-scheduler/index.js")}.zip"
   bucket = google_storage_bucket.functions_source.name
   source = data.archive_file.notification_scheduler.output_path
 }
@@ -68,7 +68,7 @@ resource "google_cloudfunctions2_function" "notification_scheduler" {
 
 # 2. payment-batch（毎日10:00 — MoneyForward入金照合）
 resource "google_storage_bucket_object" "payment_batch_source" {
-  name   = "payment-batch-${filemd5("${path.module}/../../gcp/functions/payment-batch/index.ts")}.zip"
+  name   = "payment-batch-${filemd5("${path.module}/../../gcp/functions/payment-batch/index.js")}.zip"
   bucket = google_storage_bucket.functions_source.name
   source = data.archive_file.payment_batch.output_path
 }
@@ -127,7 +127,7 @@ resource "google_cloudfunctions2_function" "payment_batch" {
 
 # 3. overdue-checker（毎日8:00 — 滞納チェック）
 resource "google_storage_bucket_object" "overdue_checker_source" {
-  name   = "overdue-checker-${filemd5("${path.module}/../../gcp/functions/overdue-checker/index.ts")}.zip"
+  name   = "overdue-checker-${filemd5("${path.module}/../../gcp/functions/overdue-checker/index.js")}.zip"
   bucket = google_storage_bucket.functions_source.name
   source = data.archive_file.overdue_checker.output_path
 }

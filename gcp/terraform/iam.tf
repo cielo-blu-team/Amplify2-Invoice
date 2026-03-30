@@ -119,11 +119,19 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
-    "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
   }
+
+  attribute_condition = "assertion.repository == 'cielo-blu-team/Amplify2-Invoice'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
+}
+
+# GitHub Actions Workload Identity → invoice-github-actions SA への権限借用
+resource "google_service_account_iam_member" "workload_identity_user" {
+  service_account_id = google_service_account.github_actions.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/cielo-blu-team/Amplify2-Invoice"
 }
