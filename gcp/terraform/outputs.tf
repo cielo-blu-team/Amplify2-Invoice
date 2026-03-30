@@ -27,3 +27,13 @@ output "service_account_email" {
   description = "Cloud Run サービスアカウントのメール"
   value       = google_service_account.cloud_run.email
 }
+
+output "github_actions_sa_email" {
+  description = "GitHub Actions サービスアカウントのメール"
+  value       = google_service_account.github_actions.email
+}
+
+output "workload_identity_provider" {
+  description = "GitHub Actions Workload Identity Provider のパス"
+  value       = google_iam_workload_identity_pool_provider.github.name
+}

@@ -12,7 +12,7 @@ env:
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GCP_REGION: asia-northeast1
   IMAGE_NAME: asia-northeast1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/invoice/app
-  CLOUD_RUN_SERVICE: amplify2-invoice
+  CLOUD_RUN_SERVICE: courage-invoice
 
 jobs:
   # ============================================================
