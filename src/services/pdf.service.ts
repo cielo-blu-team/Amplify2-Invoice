@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs/promises';
 import type { DocumentHeader, LineItem, CompanySettings } from '@/types';
-import { uploadDocument } from '@/lib/s3';
+import { uploadDocument } from '@/lib/storage-gcs';
 import { calculateTax } from '@/lib/tax-calculator';
 
 // ─── テンプレートデータ型 ────────────────────────────────────────────────────

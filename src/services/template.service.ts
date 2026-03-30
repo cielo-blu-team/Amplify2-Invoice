@@ -1,15 +1,15 @@
 // src/services/template.service.ts
-// テンプレートCRUDサービス
-// DynamoDB Settings テーブル内のTEMPLATE#{id}として保存
+// テンプレートCRUDサービス（Firestore版）
+// Firestore: settings/templates/{templateId} として保存
 
-import { docClient } from '@/lib/dynamo';
-import { GetCommand, PutCommand, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { getFirestoreClient } from '@/repositories/_firestore-client';
 import type { DocumentTemplate, CreateTemplateInput } from '@/types/template';
 
-const TABLE = process.env.DYNAMODB_TABLE ?? 'InvoiceTable';
+const TEMPLATES_COLLECTION = 'templates';
 
 class TemplateService {
   async createTemplate(input: CreateTemplateInput, createdBy: string): Promise<DocumentTemplate> {
+    const db = getFirestoreClient();
     const templateId = crypto.randomUUID();
     const now = new Date().toISOString();
     const template: DocumentTemplate = {
@@ -19,56 +19,43 @@ class TemplateService {
       createdAt: now,
       updatedAt: now,
     };
-    await docClient.send(new PutCommand({
-      TableName: TABLE,
-      Item: {
-        PK: 'TEMPLATES',
-        SK: `TEMPLATE#${templateId}`,
-        ...template,
-      },
-    }));
+
+    await db.collection(TEMPLATES_COLLECTION).doc(templateId).set(template);
     return template;
   }
 
   async getTemplate(templateId: string): Promise<DocumentTemplate | null> {
-    const res = await docClient.send(new GetCommand({
-      TableName: TABLE,
-      Key: { PK: 'TEMPLATES', SK: `TEMPLATE#${templateId}` },
-    }));
-    if (!res.Item) return null;
-    const { PK: _PK, SK: _SK, ...data } = res.Item as { PK: string; SK: string } & DocumentTemplate;
-    return data as DocumentTemplate;
+    const db = getFirestoreClient();
+    const snap = await db.collection(TEMPLATES_COLLECTION).doc(templateId).get();
+    if (!snap.exists) return null;
+    return snap.data() as DocumentTemplate;
   }
 
   async listTemplates(documentType?: 'estimate' | 'invoice' | 'both'): Promise<DocumentTemplate[]> {
-    const res = await docClient.send(new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: { ':pk': 'TEMPLATES', ':sk': 'TEMPLATE#' },
-    }));
-    const items = (res.Items ?? []).map(({ PK: _PK, SK: _SK, ...data }) => data as DocumentTemplate);
-    if (documentType) {
-      return items.filter(t => t.documentType === documentType || t.documentType === 'both');
+    const db = getFirestoreClient();
+    let query: FirebaseFirestore.Query = db.collection(TEMPLATES_COLLECTION);
+
+    if (documentType && documentType !== 'both') {
+      query = query.where('documentType', 'in', [documentType, 'both']);
     }
-    return items;
+
+    const snap = await query.get();
+    return snap.docs.map((d) => d.data() as DocumentTemplate);
   }
 
   async updateTemplate(templateId: string, updates: Partial<CreateTemplateInput>): Promise<DocumentTemplate> {
+    const db = getFirestoreClient();
     const existing = await this.getTemplate(templateId);
     if (!existing) throw new Error('テンプレートが見つかりません');
+
     const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
-    await docClient.send(new PutCommand({
-      TableName: TABLE,
-      Item: { PK: 'TEMPLATES', SK: `TEMPLATE#${templateId}`, ...updated },
-    }));
+    await db.collection(TEMPLATES_COLLECTION).doc(templateId).set(updated);
     return updated;
   }
 
   async deleteTemplate(templateId: string): Promise<void> {
-    await docClient.send(new DeleteCommand({
-      TableName: TABLE,
-      Key: { PK: 'TEMPLATES', SK: `TEMPLATE#${templateId}` },
-    }));
+    const db = getFirestoreClient();
+    await db.collection(TEMPLATES_COLLECTION).doc(templateId).delete();
   }
 }
 

@@ -1,21 +1,29 @@
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { AuditLog } from '@/types';
-import { getDynamoDocumentClient, encodeCursor, decodeCursor } from './_dynamo-client';
+import {
+  getFirestoreClient,
+  applyCursorToQuery,
+  generateNextCursor,
+  stripLegacyFields,
+  ttlTimestamp,
+  TTL_DAYS,
+} from './_firestore-client';
+import { COLLECTIONS } from '@/lib/constants';
 
-const TABLE = process.env.DYNAMODB_TABLE_AUDIT_LOGS ?? 'AuditLogs';
-
-// 監査ログ追記
-export async function appendAuditLog(log: AuditLog): Promise<void> {
-  const client = getDynamoDocumentClient();
-  await client.send(
-    new PutCommand({
-      TableName: TABLE,
-      Item: log,
-    })
-  );
+function toDateKey(dateString?: string): string {
+  const date = dateString ? new Date(dateString) : new Date();
+  return date.toISOString().substring(0, 10).replace(/-/g, '');
 }
 
-// 監査ログ検索
+export async function appendAuditLog(log: AuditLog): Promise<void> {
+  await getFirestoreClient()
+    .collection(COLLECTIONS.AUDIT_LOGS)
+    .add({
+      ...stripLegacyFields(log, 'ttl'),
+      date: toDateKey(log.timestamp),
+      expiresAt: ttlTimestamp(TTL_DAYS.AUDIT_LOG),
+    });
+}
+
 export async function queryAuditLogs(params: {
   userId?: string;
   resourceId?: string;
@@ -24,66 +32,29 @@ export async function queryAuditLogs(params: {
   limit?: number;
   cursor?: string;
 }): Promise<{ items: AuditLog[]; cursor?: string }> {
-  const client = getDynamoDocumentClient();
   const pageSize = params.limit ?? 50;
 
-  // dateFrom/dateTo を PK（LOG#{date}）の検索に使用
-  // 日付範囲がある場合、複数日付にまたがるケースは呼び出し元で複数回呼ぶことを前提とし、
-  // ここでは dateFrom を基準日として単一クエリ実装
-  const dateKey = params.dateFrom
-    ? params.dateFrom.substring(0, 10).replace(/-/g, '')
-    : new Date().toISOString().substring(0, 10).replace(/-/g, '');
-
-  const filterExpressionParts: string[] = [];
-  const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, unknown> = {
-    ':pk': `LOG#${dateKey}`,
-  };
-
-  if (params.dateTo) {
-    // SK の prefix は timestamp 始まり: {timestamp}#{eventId}
-    // dateTo は YYYY-MM-DD 形式を ISO 文字列に変換して範囲フィルタ
-    filterExpressionParts.push('#timestamp <= :dateTo');
-    expressionAttributeNames['#timestamp'] = 'timestamp';
-    expressionAttributeValues[':dateTo'] = `${params.dateTo}T23:59:59.999Z`;
-  }
+  let query: FirebaseFirestore.Query = getFirestoreClient().collection(COLLECTIONS.AUDIT_LOGS);
 
   if (params.userId) {
-    filterExpressionParts.push('#userId = :userId');
-    expressionAttributeNames['#userId'] = 'userId';
-    expressionAttributeValues[':userId'] = params.userId;
+    query = query.where('userId', '==', params.userId).orderBy('timestamp', 'desc');
+  } else if (params.resourceId) {
+    query = query.where('resourceId', '==', params.resourceId).orderBy('timestamp', 'desc');
+  } else {
+    query = query.where('date', '==', toDateKey(params.dateFrom)).orderBy('timestamp', 'desc');
   }
 
-  if (params.resourceId) {
-    filterExpressionParts.push('#resourceId = :resourceId');
-    expressionAttributeNames['#resourceId'] = 'resourceId';
-    expressionAttributeValues[':resourceId'] = params.resourceId;
+  if (params.dateTo) {
+    query = query.where('timestamp', '<=', `${params.dateTo}T23:59:59.999Z`);
   }
 
-  const queryParams: ConstructorParameters<typeof QueryCommand>[0] = {
-    TableName: TABLE,
-    KeyConditionExpression: 'PK = :pk',
-    ExpressionAttributeValues: expressionAttributeValues,
-    Limit: pageSize,
-    ScanIndexForward: false, // 新しい順
-  };
+  query = await applyCursorToQuery(query, COLLECTIONS.AUDIT_LOGS, params.cursor);
 
-  if (filterExpressionParts.length > 0) {
-    queryParams.FilterExpression = filterExpressionParts.join(' AND ');
-    queryParams.ExpressionAttributeNames = expressionAttributeNames;
-  }
+  const snap = await query.limit(pageSize).get();
+  const items = snap.docs.map((d) => {
+    const { expiresAt: _exp, date: _date, ...logData } = d.data();
+    return logData as AuditLog;
+  });
 
-  if (params.cursor) {
-    queryParams.ExclusiveStartKey = decodeCursor(params.cursor) as Record<string, unknown>;
-  }
-
-  const result = await client.send(new QueryCommand(queryParams));
-  const items = (result.Items as AuditLog[]) ?? [];
-
-  return {
-    items,
-    cursor: result.LastEvaluatedKey
-      ? encodeCursor(result.LastEvaluatedKey as Record<string, unknown>)
-      : undefined,
-  };
+  return { items, cursor: generateNextCursor(snap.docs, pageSize) };
 }

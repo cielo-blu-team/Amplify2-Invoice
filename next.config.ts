@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
+  // Cloud Run デプロイに必要（Docker standalone モード）
+  output: 'standalone',
   reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
@@ -20,11 +22,8 @@ const nextConfig: NextConfig = {
     '*': [
       'puppeteer/**/*',
       'puppeteer-core/**/*',
-      '@aws-sdk/**/*',
-      'aws-cdk-lib/**/*',
-      'constructs/**/*',
-      '@aws-amplify/backend/**/*',
-      '@aws-amplify/backend-cli/**/*',
+      '@google-cloud/**/*',
+      'firebase-admin/**/*',
       'vitest/**/*',
       'playwright/**/*',
       '@playwright/**/*',

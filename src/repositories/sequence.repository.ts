@@ -1,33 +1,15 @@
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { getDynamoDocumentClient } from './_dynamo-client';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestoreClient } from './_firestore-client';
+import { COLLECTIONS } from '@/lib/constants';
 
-const TABLE = process.env.DYNAMODB_TABLE_SEQUENCES ?? 'Sequences';
-
-// DynamoDB ADD アトミック操作で連番を採番
-// PK=SEQ#{type}#{date}, SK=COUNTER
-// 戻り値: 採番されたシーケンス番号（1始まり）
-// date形式: YYYYMMDD
 export async function getNextSequence(type: 'EST' | 'INV', date: string): Promise<number> {
-  const client = getDynamoDocumentClient();
+  const db = getFirestoreClient();
+  const ref = db.collection(COLLECTIONS.SEQUENCES).doc(`${type}_${date}`);
 
-  const result = await client.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: {
-        PK: `SEQ#${type}#${date}`,
-        SK: 'COUNTER',
-      },
-      UpdateExpression: 'ADD #counter :inc',
-      ExpressionAttributeNames: {
-        '#counter': 'counter',
-      },
-      ExpressionAttributeValues: {
-        ':inc': 1,
-      },
-      ReturnValues: 'UPDATED_NEW',
-    })
-  );
-
-  const counter = result.Attributes?.['counter'] as number;
-  return counter;
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const next = (snap.data()?.counter ?? 0) + 1;
+    tx.set(ref, { counter: next, lastUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return next;
+  });
 }

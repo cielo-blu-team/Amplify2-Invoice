@@ -1,110 +1,62 @@
-import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
 import type { Project } from '@/types';
-import { getDynamoDocumentClient, encodeCursor, decodeCursor } from './_dynamo-client';
-
-const TABLE = process.env.DYNAMODB_TABLE_PROJECTS ?? 'Projects';
+import {
+  getFirestoreClient,
+  applyCursorToQuery,
+  generateNextCursor,
+  stripLegacyFields,
+  withUpdatedAt,
+} from './_firestore-client';
+import { COLLECTIONS } from '@/lib/constants';
 
 export async function getProjectById(projectId: string): Promise<Project | null> {
-  const client = getDynamoDocumentClient();
-  const result = await client.send(
-    new GetCommand({
-      TableName: TABLE,
-      Key: { PK: `PROJECT#${projectId}`, SK: 'META' },
-    })
-  );
-  return (result.Item as Project) ?? null;
+  const snap = await getFirestoreClient().collection(COLLECTIONS.PROJECTS).doc(projectId).get();
+  if (!snap.exists) return null;
+  return { ...snap.data(), projectId: snap.id } as Project;
 }
 
 export async function createProject(data: Project): Promise<void> {
-  const client = getDynamoDocumentClient();
-  await client.send(
-    new PutCommand({
-      TableName: TABLE,
-      Item: data,
-      ConditionExpression: 'attribute_not_exists(PK)',
-    })
-  );
+  const db = getFirestoreClient();
+  const docRef = db.collection(COLLECTIONS.PROJECTS).doc(data.projectId);
+
+  await db.runTransaction(async (tx) => {
+    if ((await tx.get(docRef)).exists) throw new Error(`Project ${data.projectId} already exists`);
+    tx.set(docRef, stripLegacyFields(data, 'projectId'));
+  });
 }
 
 export async function updateProject(projectId: string, updates: Partial<Project>): Promise<void> {
-  const client = getDynamoDocumentClient();
-  const now = new Date().toISOString();
-  const { PK: _PK, SK: _SK, ...safeUpdates } = { ...updates, updatedAt: now } as Partial<Project>;
-
-  const parts: string[] = [];
-  const names: Record<string, string> = {};
-  const values: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(safeUpdates)) {
-    parts.push(`#${key} = :${key}`);
-    names[`#${key}`] = key;
-    values[`:${key}`] = value;
-  }
-
-  await client.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: `PROJECT#${projectId}`, SK: 'META' },
-      UpdateExpression: `SET ${parts.join(', ')}`,
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-    })
-  );
+  await getFirestoreClient()
+    .collection(COLLECTIONS.PROJECTS)
+    .doc(projectId)
+    .update(withUpdatedAt(stripLegacyFields(updates, 'projectId')));
 }
 
 export async function softDeleteProject(projectId: string): Promise<void> {
-  const client = getDynamoDocumentClient();
-  await client.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: `PROJECT#${projectId}`, SK: 'META' },
-      UpdateExpression: 'SET #isDeleted = :true, #updatedAt = :now',
-      ExpressionAttributeNames: { '#isDeleted': 'isDeleted', '#updatedAt': 'updatedAt' },
-      ExpressionAttributeValues: { ':true': true, ':now': new Date().toISOString() },
-    })
-  );
+  await getFirestoreClient()
+    .collection(COLLECTIONS.PROJECTS)
+    .doc(projectId)
+    .update(withUpdatedAt({ isDeleted: true }));
 }
 
 export async function listProjects(
   limit?: number,
   cursor?: string,
-  statusFilter?: string
+  statusFilter?: string,
 ): Promise<{ items: Project[]; cursor?: string }> {
-  const client = getDynamoDocumentClient();
   const pageSize = limit ?? 50;
 
-  let filterExpression = '#isDeleted = :false';
-  const names: Record<string, string> = { '#isDeleted': 'isDeleted' };
-  const values: Record<string, unknown> = { ':false': false };
+  let query = getFirestoreClient()
+    .collection(COLLECTIONS.PROJECTS)
+    .where('isDeleted', '==', false)
+    .orderBy('createdAt', 'desc') as FirebaseFirestore.Query;
 
-  if (statusFilter) {
-    filterExpression += ' AND #status = :status';
-    names['#status'] = 'status';
-    values[':status'] = statusFilter;
-  }
+  if (statusFilter) query = query.where('status', '==', statusFilter);
 
-  const params: ConstructorParameters<typeof ScanCommand>[0] = {
-    TableName: TABLE,
-    FilterExpression: filterExpression,
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
-    Limit: pageSize,
-  };
+  query = await applyCursorToQuery(query, COLLECTIONS.PROJECTS, cursor);
 
-  if (cursor) {
-    params.ExclusiveStartKey = decodeCursor(cursor) as Record<string, unknown>;
-  }
-
-  const result = await client.send(new ScanCommand(params));
+  const snap = await query.limit(pageSize).get();
   return {
-    items: (result.Items as Project[]) ?? [],
-    cursor: result.LastEvaluatedKey
-      ? encodeCursor(result.LastEvaluatedKey as Record<string, unknown>)
-      : undefined,
+    items: snap.docs.map((d) => ({ ...d.data(), projectId: d.id }) as Project),
+    cursor: generateNextCursor(snap.docs, pageSize),
   };
 }

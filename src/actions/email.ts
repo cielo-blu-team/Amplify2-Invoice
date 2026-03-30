@@ -1,27 +1,16 @@
 'use server';
-import { emailService } from '@/services/email.service';
 import type { ApiResponse } from '@/types';
 
+// メール送信は廃止済み — Slack通知に移行済み
 export async function sendDocumentByEmail(
-  documentId: string,
-  toEmails: string[],
+  _documentId: string,
+  _toEmails: string[],
 ): Promise<ApiResponse<void>> {
-  try {
-    // TODO: documentServiceからデータ取得
-    // const doc = await getDocument(documentId);
-    await emailService.sendDocumentEmail({
-      to: toEmails,
-      documentId,
-      documentNumber: documentId,
-      documentType: 'invoice',
-      clientName: '取引先',
-      totalAmount: 0,
-      pdfUrl: '',
-      senderName: '株式会社IS Holdings',
-      senderEmail: process.env.SES_FROM_EMAIL ?? 'noreply@example.com',
-    });
-    return { success: true, data: undefined };
-  } catch (e) {
-    return { success: false, error: { code: 'INTERNAL_ERROR', message: e instanceof Error ? e.message : 'メール送信に失敗しました' } };
-  }
+  return {
+    success: false,
+    error: {
+      code: 'NOT_SUPPORTED',
+      message: 'メール送信機能は廃止されました。Slack通知をご利用ください。',
+    },
+  };
 }

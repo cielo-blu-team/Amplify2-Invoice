@@ -92,11 +92,13 @@ export function canApprove(requesterId: string, approverId: string): boolean {
 
 /**
  * JWT クレームからロールを取得するユーティリティ
- * claims['custom:role'] が有効なロールであればそれを返し、それ以外は 'user' を返す
+ * Firebase カスタムクレームの 'role' フィールドを参照
+ * （旧 Cognito: claims['custom:role'] → Firebase: claims['role']）
  */
 export function getRoleFromClaims(claims: Record<string, unknown>): Role {
   const validRoles: Role[] = ['user', 'accountant', 'admin'];
-  const claimRole = claims['custom:role'];
+  // Firebase カスタムクレームは直接 'role' フィールドに格納
+  const claimRole = claims['role'];
   if (typeof claimRole === 'string' && (validRoles as string[]).includes(claimRole)) {
     return claimRole as Role;
   }

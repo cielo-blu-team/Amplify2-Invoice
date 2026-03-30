@@ -50,11 +50,29 @@ export const PAGINATION = {
   MAX_LIMIT: 50,
 } as const;
 
-// S3 パス
-export const S3_PATHS = {
+// GCS パス（Cloud Storage）
+export const GCS_PATHS = {
   DOCUMENTS: 'documents',
   IMAGES: 'images',
   ARCHIVES: 'archives',
+} as const;
+
+// Firestore コレクション名（DynamoDB TABLE_NAMES 相当）
+export const COLLECTIONS = {
+  DOCUMENTS: 'documents',
+  CLIENTS: 'clients',
+  SETTINGS: 'settings',
+  USERS: 'users',
+  AUDIT_LOGS: 'auditLogs',
+  SEQUENCES: 'sequences',
+  IDEMPOTENCY_KEYS: 'idempotencyKeys',
+  PROJECTS: 'projects',
+} as const;
+
+// Firestore サブコレクション名
+export const SUBCOLLECTIONS = {
+  LINE_ITEMS: 'lineItems',
+  APPROVALS: 'approvals',
 } as const;
 
 // ステータス遷移マップ（設計書 7.1.1）
