@@ -8,10 +8,11 @@ import { Separator } from '@/components/ui/separator';
 import { updateNotificationSettings } from '@/actions/notification-settings';
 import { showError, showSuccess } from '@/lib/toast';
 import type { NotificationSettings } from '@/types';
+import type { SlackChannelConfig } from '@/queries/notification-settings';
 
 interface Props {
   initialSettings: NotificationSettings | null;
-  initialSlackChannel: string;
+  initialSlackChannels: SlackChannelConfig;
 }
 
 const DEFAULT: NotificationSettings = {
@@ -44,21 +45,25 @@ function SwitchRow({ label, description, checked, onCheckedChange }: SwitchRowPr
   );
 }
 
-export default function NotificationSettingsClient({ initialSettings, initialSlackChannel }: Props) {
+export default function NotificationSettingsClient({ initialSettings, initialSlackChannels }: Props) {
   const [settings, setSettings] = useState<NotificationSettings>(
     initialSettings ?? DEFAULT
   );
-  const [slackChannel, setSlackChannel] = useState(initialSlackChannel);
+  const [slackChannels, setSlackChannels] = useState<SlackChannelConfig>(initialSlackChannels);
   const [loading, setLoading] = useState(false);
 
   const toggle = (key: keyof NotificationSettings) => {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const setChannel = (key: keyof SlackChannelConfig, value: string) => {
+    setSlackChannels((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleSave = async () => {
     setLoading(true);
     try {
-      const result = await updateNotificationSettings('', { settings, slackChannel });
+      const result = await updateNotificationSettings('', { settings, slackChannels });
       if (!result.success) {
         showError(result.error.message);
       } else {
@@ -160,19 +165,27 @@ export default function NotificationSettingsClient({ initialSettings, initialSla
 
       <div style={cardStyle}>
         <p style={sectionTitleStyle}>Slack チャンネル設定</p>
-        <div className="space-y-1">
-          <label className="text-sm font-medium" style={{ color: '#374151' }} htmlFor="slack-channel">
-            承認通知チャンネル
-          </label>
-          <Input
-            id="slack-channel"
-            placeholder="#approvals"
-            value={slackChannel}
-            onChange={(e) => setSlackChannel(e.currentTarget.value)}
-          />
-          <p className="text-xs" style={{ color: '#71717a' }}>
-            承認依頼・承認結果の通知先チャンネル（例: #approvals）
-          </p>
+        <div className="space-y-4">
+          {(
+            [
+              { key: 'approvalChannel', label: '承認通知チャンネル', placeholder: '#approvals', description: '承認依頼・承認結果・リマインドの通知先' },
+              { key: 'alertChannel',    label: '期限アラートチャンネル', placeholder: '#alerts',   description: '支払期限アラート・遅延通知の通知先' },
+              { key: 'paymentChannel',  label: '入金通知チャンネル',   placeholder: '#payments', description: '入金確認通知の通知先' },
+              { key: 'generalChannel',  label: '一般通知チャンネル',   placeholder: '#general',  description: '帳票作成通知の通知先' },
+            ] as const
+          ).map(({ key, label, placeholder, description }) => (
+            <div key={key} className="space-y-1">
+              <label className="text-sm font-medium" style={{ color: '#374151' }}>
+                {label}
+              </label>
+              <Input
+                placeholder={placeholder}
+                value={slackChannels[key]}
+                onChange={(e) => setChannel(key, e.currentTarget.value)}
+              />
+              <p className="text-xs" style={{ color: '#71717a' }}>{description}</p>
+            </div>
+          ))}
         </div>
       </div>
 

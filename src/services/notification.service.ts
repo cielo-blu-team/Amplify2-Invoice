@@ -1,3 +1,5 @@
+import { getSlackChannelConfig } from '@/repositories/settings.repository';
+
 export interface SlackMessage {
   channel: string;
   text: string;
@@ -12,6 +14,20 @@ export interface SlackBlock {
 class NotificationService {
   private webhookUrl = process.env.SLACK_WEBHOOK_URL ?? '';
   private botToken = process.env.SLACK_BOT_TOKEN ?? '';
+
+  private async resolveChannel(
+    envVar: string,
+    configKey: 'approvalChannel' | 'alertChannel' | 'paymentChannel' | 'generalChannel',
+    fallback: string,
+  ): Promise<string> {
+    try {
+      const config = await getSlackChannelConfig();
+      if (config?.[configKey]) return config[configKey];
+    } catch {
+      // Firestore 読み取り失敗時は env var にフォールバック
+    }
+    return process.env[envVar] ?? fallback;
+  }
 
   private async sendToSlack(message: SlackMessage): Promise<void> {
     if (!this.webhookUrl && !this.botToken) {
@@ -43,7 +59,7 @@ class NotificationService {
     approverUserId: string;
     appBaseUrl: string;
   }): Promise<void> {
-    const channel = process.env.SLACK_APPROVAL_CHANNEL ?? '#approvals';
+    const channel = await this.resolveChannel('SLACK_APPROVAL_CHANNEL', 'approvalChannel', '#approvals');
     const docLabel = params.documentType === 'estimate' ? '見積書' : '請求書';
     const url = `${params.appBaseUrl}/approvals`;
     await this.sendToSlack({
@@ -81,7 +97,7 @@ class NotificationService {
   }): Promise<void> {
     const channel = params.requesterSlackId
       ? `@${params.requesterSlackId}`
-      : (process.env.SLACK_APPROVAL_CHANNEL ?? '#approvals');
+      : await this.resolveChannel('SLACK_APPROVAL_CHANNEL', 'approvalChannel', '#approvals');
     const emoji = params.action === 'approved' ? '✅' : '❌';
     const label = params.action === 'approved' ? '承認されました' : '差戻しされました';
     await this.sendToSlack({
@@ -110,7 +126,7 @@ class NotificationService {
   }): Promise<void> {
     const channel = params.slackUserId
       ? `@${params.slackUserId}`
-      : (process.env.SLACK_GENERAL_CHANNEL ?? '#general');
+      : await this.resolveChannel('SLACK_GENERAL_CHANNEL', 'generalChannel', '#general');
     const docLabel = params.documentType === 'estimate' ? '見積書' : '請求書';
     await this.sendToSlack({
       channel,
@@ -135,7 +151,7 @@ class NotificationService {
     dueDate: string;
     daysUntilDue: number; // 7, 3, 0
   }): Promise<void> {
-    const channel = process.env.SLACK_ALERT_CHANNEL ?? '#alerts';
+    const channel = await this.resolveChannel('SLACK_ALERT_CHANNEL', 'alertChannel', '#alerts');
     const urgency =
       params.daysUntilDue === 0
         ? '🚨 本日期限'
@@ -164,7 +180,7 @@ class NotificationService {
     totalAmount: number;
     dueDate: string;
   }): Promise<void> {
-    const channel = process.env.SLACK_ALERT_CHANNEL ?? '#alerts';
+    const channel = await this.resolveChannel('SLACK_ALERT_CHANNEL', 'alertChannel', '#alerts');
     await this.sendToSlack({
       channel,
       text: `🔴 支払遅延: ${params.documentNumber} (${params.clientName})`,
@@ -186,7 +202,7 @@ class NotificationService {
     requestedBy: string;
     hoursElapsed: number;
   }): Promise<void> {
-    const channel = process.env.SLACK_APPROVAL_CHANNEL ?? '#approvals';
+    const channel = await this.resolveChannel('SLACK_APPROVAL_CHANNEL', 'approvalChannel', '#approvals');
     await this.sendToSlack({
       channel,
       text: `⏰ 承認リマインド: ${params.documentNumber}（${params.hoursElapsed}時間経過）`,
@@ -200,7 +216,7 @@ class NotificationService {
     amount: number;
     matchStatus: 'full' | 'partial' | 'mismatch';
   }): Promise<void> {
-    const channel = process.env.SLACK_PAYMENT_CHANNEL ?? '#payments';
+    const channel = await this.resolveChannel('SLACK_PAYMENT_CHANNEL', 'paymentChannel', '#payments');
     const emoji =
       params.matchStatus === 'full' ? '✅' : params.matchStatus === 'partial' ? '⚠️' : '❓';
     const label =

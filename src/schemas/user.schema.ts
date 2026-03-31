@@ -34,8 +34,16 @@ export const updateNotificationSettingsSchema = z.object({
   settings: notificationSettingsSchema,
 });
 
+// Slack チャンネル設定スキーマ
+export const slackChannelConfigSchema = z.object({
+  approvalChannel: z.string().max(100).default('#approvals'),
+  alertChannel: z.string().max(100).default('#alerts'),
+  paymentChannel: z.string().max(100).default('#payments'),
+  generalChannel: z.string().max(100).default('#general'),
+});
+
 // 通知設定 + Slack チャンネル設定まとめスキーマ
 export const saveNotificationConfigSchema = z.object({
   settings: notificationSettingsSchema,
-  slackChannel: z.string().max(100).optional(),
+  slackChannels: slackChannelConfigSchema.optional(),
 });
