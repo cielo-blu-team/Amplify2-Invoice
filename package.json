@@ -1,5 +1,5 @@
 {
-  "name": "amplify2-invoice",
+  "name": "courage-invoice",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -16,7 +16,6 @@
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "@google-cloud/storage": "^7.0.0",
-    "firebase-admin": "^12.0.0",
     "@hookform/resolvers": "^5.2.2",
     "@mantine/charts": "^8.3.18",
     "@mantine/core": "^8.3.18",
@@ -41,6 +40,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.20",
+    "firebase": "^12.11.0",
+    "firebase-admin": "^12.0.0",
     "lucide-react": "^1.7.0",
     "next": "^16.2.1",
     "react": "^19.2.4",
@@ -61,13 +62,13 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "puppeteer": "^24.40.0",
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^29.0.1",
     "postcss": "^8.5.8",
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",
     "prettier": "^3.8.1",
+    "puppeteer": "^24.40.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
