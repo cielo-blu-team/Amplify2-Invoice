@@ -4,7 +4,6 @@ import { generatePdf } from '@/services/pdf.service';
 import * as documentService from '@/services/document.service';
 import * as documentRepo from '@/repositories/document.repository';
 import * as settingsService from '@/services/settings.service';
-import { getSignedUrl } from '@/lib/storage-gcs';
 import type { ApiResponse } from '@/types';
 
 // pdf.service.ts は generatePdf(params) を export する関数スタイルのため、
@@ -29,8 +28,8 @@ const pdfService = {
 export async function generatePdfAction(documentId: string): Promise<ApiResponse<{ pdfUrl: string }>> {
   try {
     const storageKey = await pdfService.generateAndUpload(documentId);
-    // GCS の署名付き URL（1時間有効）を発行してブラウザから直接ダウンロード可能にする
-    const pdfUrl = await getSignedUrl(storageKey, 3600);
+    // サーバー経由でダウンロード（signBlob 権限不要）
+    const pdfUrl = `/api/pdf/download?key=${encodeURIComponent(storageKey)}`;
     return { success: true, data: { pdfUrl } };
   } catch (e) {
     return {
