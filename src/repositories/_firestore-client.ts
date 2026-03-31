@@ -7,6 +7,8 @@ let firestoreInstance: Firestore | null = null;
 export function getFirestoreClient(): Firestore {
   if (!firestoreInstance) {
     firestoreInstance = getDb();
+    // undefined フィールドを無視（任意フィールドが undefined のままでもエラーにしない）
+    firestoreInstance.settings({ ignoreUndefinedProperties: true });
   }
   return firestoreInstance;
 }
