@@ -7,7 +7,7 @@ async function login(page: Page) {
   await page.goto('/login');
   await page.getByPlaceholder('example@company.com').fill(EMAIL);
   await page.getByPlaceholder('パスワードを入力').fill(PASSWORD);
-  await page.getByRole('button', { name: 'ログイン' }).click();
+  await page.getByRole('button', { name: 'ログイン', exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 10000 });
 }
 

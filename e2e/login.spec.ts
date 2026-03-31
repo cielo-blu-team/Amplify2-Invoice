@@ -15,7 +15,7 @@ test.describe('ログイン', () => {
     await page.goto('/login');
     await page.getByPlaceholder('example@company.com').fill(EMAIL);
     await page.getByPlaceholder('パスワードを入力').fill(PASSWORD);
-    await page.getByRole('button', { name: 'ログイン' }).click();
+    await page.getByRole('button', { name: 'ログイン', exact: true }).click();
 
     // ログイン後にダッシュボードまたは請求書一覧へリダイレクト
     await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 10000 });
@@ -26,7 +26,7 @@ test.describe('ログイン', () => {
     await page.goto('/login');
     await page.getByPlaceholder('example@company.com').fill(EMAIL);
     await page.getByPlaceholder('パスワードを入力').fill('wrongpassword');
-    await page.getByRole('button', { name: 'ログイン' }).click();
+    await page.getByRole('button', { name: 'ログイン', exact: true }).click();
 
     await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible({ timeout: 10000 });
   });
