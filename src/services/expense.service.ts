@@ -50,6 +50,7 @@ export async function createExpense(input: ExpenseCreateInput): Promise<Expense>
     ...input,
     isAutoClassified: input.isAutoClassified ?? false,
     source: input.source ?? 'manual',
+    status: 'pending', // 常に仮登録
     isDeleted: false,
     createdAt: now,
     updatedAt: now,
@@ -88,6 +89,10 @@ export async function updateExpense(
   updates: Partial<ExpenseCreateInput>,
 ): Promise<void> {
   await repo.updateExpense(expenseId, updates);
+}
+
+export async function approveExpenses(expenseIds: string[], confirmedBy: string): Promise<void> {
+  await repo.approveExpenses(expenseIds, confirmedBy);
 }
 
 export async function deleteExpense(expenseId: string): Promise<void> {
@@ -156,8 +161,8 @@ export async function getProfitLoss(months: number = 6): Promise<ProfitLossSumma
 
   const invoices = invoiceSnap.docs.map((d) => d.data() as DocumentHeader);
 
-  // 経費を取得
-  const expenses = await repo.listExpensesByDateRange(startDate, endDate);
+  // 経費を取得（確定済みのみP&Lに反映）
+  const expenses = await repo.listExpensesByDateRange(startDate, endDate, 'confirmed');
 
   // 月別集計
   const revenueByMonth = new Map<string, number>();

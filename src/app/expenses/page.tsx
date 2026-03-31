@@ -10,9 +10,12 @@ export default async function ExpensePage() {
 
   const canReadExpense = hasPermission(role, 'expense:read');
 
-  const [expenseResult, rules, pl] = await Promise.all([
+  const [pendingResult, confirmedResult, rules, pl] = await Promise.all([
     canReadExpense
-      ? expenseService.listExpenses({ limit: 50 }).catch(() => ({ items: [], cursor: undefined }))
+      ? expenseService.listExpenses({ status: 'pending', limit: 200 }).catch(() => ({ items: [], cursor: undefined }))
+      : Promise.resolve({ items: [], cursor: undefined }),
+    canReadExpense
+      ? expenseService.listExpenses({ status: 'confirmed', limit: 50 }).catch(() => ({ items: [], cursor: undefined }))
       : Promise.resolve({ items: [], cursor: undefined }),
     hasPermission(role, 'expense:rule')
       ? expenseService.listRules().catch(() => [])
@@ -25,7 +28,8 @@ export default async function ExpensePage() {
   return (
     <ExpenseClient
       role={role}
-      initialExpenses={expenseResult.items}
+      initialPending={pendingResult.items}
+      initialConfirmed={confirmedResult.items}
       initialRules={rules}
       initialPL={pl}
     />

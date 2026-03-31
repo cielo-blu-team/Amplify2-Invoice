@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import * as expenseService from '@/services/expense.service';
 import { expenseCreateSchema, expenseRuleCreateSchema, expenseImportRowSchema } from '@/schemas/expense.schema';
+import { getCurrentUserId } from '@/lib/auth-server';
 import type { ApiResponse, Expense, ExpenseRule, ProfitLossSummary } from '@/types';
 
 export async function createExpense(input: unknown): Promise<ApiResponse<Expense>> {
@@ -43,10 +44,21 @@ export async function deleteExpense(expenseId: string): Promise<ApiResponse<void
   }
 }
 
+export async function approveExpenses(expenseIds: string[]): Promise<ApiResponse<void>> {
+  try {
+    const userId = await getCurrentUserId();
+    await expenseService.approveExpenses(expenseIds, userId);
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: { code: 'INTERNAL_ERROR', message: err instanceof Error ? err.message : '予期しないエラーが発生しました' } };
+  }
+}
+
 export async function listExpenses(filters: {
   month?: string;
   category?: string;
   keyword?: string;
+  status?: string;
   limit?: number;
   cursor?: string;
 } = {}): Promise<ApiResponse<{ items: Expense[]; cursor?: string }>> {

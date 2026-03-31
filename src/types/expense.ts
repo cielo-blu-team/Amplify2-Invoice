@@ -38,6 +38,9 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   other: 'その他',
 };
 
+// 経費ステータス
+export type ExpenseStatus = 'pending' | 'confirmed';
+
 // 経費
 export interface Expense {
   expenseId: string;
@@ -52,6 +55,9 @@ export interface Expense {
   projectId?: string;
   isAutoClassified: boolean;
   source: 'manual' | 'import';
+  status: ExpenseStatus; // pending=仮登録 / confirmed=本確定
+  confirmedAt?: string;
+  confirmedBy?: string;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

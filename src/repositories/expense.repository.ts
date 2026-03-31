@@ -40,9 +40,10 @@ export async function softDeleteExpense(expenseId: string): Promise<void> {
 }
 
 export interface ExpenseListFilters {
-  month?: string;   // YYYY-MM
+  month?: string;    // YYYY-MM
   category?: string;
   keyword?: string;
+  status?: string;   // 'pending' | 'confirmed'
   limit?: number;
   cursor?: string;
 }
@@ -57,6 +58,7 @@ export async function listExpenses(
     .where('isDeleted', '==', false)
     .orderBy('date', 'desc') as FirebaseFirestore.Query;
 
+  if (filters.status) query = query.where('status', '==', filters.status);
   if (filters.category) query = query.where('category', '==', filters.category);
   if (filters.month) {
     const start = `${filters.month}-01`;
@@ -79,17 +81,36 @@ export async function listExpenses(
   return { items, cursor: generateNextCursor(snap.docs, pageSize) };
 }
 
+export async function approveExpenses(
+  expenseIds: string[],
+  confirmedBy: string,
+): Promise<void> {
+  const db = getFirestoreClient();
+  const now = new Date().toISOString();
+  const batch = db.batch();
+  for (const id of expenseIds) {
+    batch.update(db.collection(COLLECTIONS.EXPENSES).doc(id), {
+      status: 'confirmed',
+      confirmedAt: now,
+      confirmedBy,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+}
+
 export async function listExpensesByDateRange(
   startDate: string,
   endDate: string,
+  status?: string,
 ): Promise<Expense[]> {
-  const snap = await getFirestoreClient()
+  let query = getFirestoreClient()
     .collection(COLLECTIONS.EXPENSES)
     .where('isDeleted', '==', false)
     .where('date', '>=', startDate)
-    .where('date', '<=', endDate)
-    .orderBy('date', 'desc')
-    .get();
+    .where('date', '<=', endDate) as FirebaseFirestore.Query;
+  if (status) query = query.where('status', '==', status);
+  const snap = await query.orderBy('date', 'desc').get();
   return snap.docs.map((d) => ({ ...d.data(), expenseId: d.id }) as Expense);
 }
 
