@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // firebase-admin / @google-cloud は Turbopack でバンドルせず Node.js の require() を使う
+  // firebase-admin / @google-cloud はサーバー専用のためバンドルせず Node.js の require() を使う
+  // firebase クライアント SDK はブラウザでバンドルが必要なので含めない
   serverExternalPackages: [
     'firebase-admin',
     '@google-cloud/firestore',
