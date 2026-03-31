@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, BarChart2, FileText, Receipt,
@@ -59,6 +59,12 @@ function isActive(href: string, pathname: string) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
 
   return (
     <aside
@@ -161,6 +167,7 @@ export default function Sidebar() {
       <div className="px-2 pb-4">
         <div className="mx-2 h-px mb-2" style={{ background: 'rgba(255,255,255,0.06)' }} />
         <button
+          onClick={handleLogout}
           className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 group hover:bg-red-500/10"
           style={{ color: 'rgba(255,255,255,0.3)', border: '1px solid transparent' }}
           onMouseEnter={(e) => {
