@@ -36,4 +36,9 @@ test.describe('ログイン', () => {
     await page.waitForURL(/\/login/, { timeout: 5000 });
     expect(page.url()).toContain('/login');
   });
+
+  test('Googleでログインボタンが表示される', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.getByRole('button', { name: /Google/ })).toBeVisible();
+  });
 });
