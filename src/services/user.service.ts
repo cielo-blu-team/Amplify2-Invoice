@@ -47,7 +47,7 @@ export async function updateUser(
 
 // ユーザー取得
 export async function getUser(userId: string): Promise<User | null> {
-  return userRepo.getUserById(userId);
+  return userRepo.getUserByFirebaseUid(userId);
 }
 
 // Cognito Sub でユーザー取得
@@ -65,14 +65,14 @@ export async function updateNotificationSettings(
   userId: string,
   settings: NotificationSettings
 ): Promise<User> {
-  const existing = await userRepo.getUserById(userId);
+  const existing = await userRepo.getUserByFirebaseUid(userId);
   if (!existing) {
     throw new Error(`User not found: ${userId}`);
   }
 
-  await userRepo.updateUser(userId, { notificationSettings: settings });
+  await userRepo.updateUser(existing.userId, { notificationSettings: settings });
 
-  const updated = await userRepo.getUserById(userId);
+  const updated = await userRepo.getUserByFirebaseUid(userId);
   if (!updated) {
     throw new Error(`User not found after update: ${userId}`);
   }
@@ -84,7 +84,7 @@ export async function updateNotificationConfig(
   userId: string,
   config: { settings: NotificationSettings; slackChannel?: string }
 ): Promise<User> {
-  const existing = await userRepo.getUserById(userId);
+  const existing = await userRepo.getUserByFirebaseUid(userId);
   if (!existing) {
     throw new Error(`User not found: ${userId}`);
   }
@@ -93,9 +93,9 @@ export async function updateNotificationConfig(
   if (config.slackChannel !== undefined) {
     updates.slackChannel = config.slackChannel;
   }
-  await userRepo.updateUser(userId, updates);
+  await userRepo.updateUser(existing.userId, updates);
 
-  const updated = await userRepo.getUserById(userId);
+  const updated = await userRepo.getUserByFirebaseUid(userId);
   if (!updated) {
     throw new Error(`User not found after update: ${userId}`);
   }
