@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { verifyIdToken } from '@/lib/firebase-admin-auth';
+import { provisionUser } from '@/lib/provision-user';
 
 const FIREBASE_API_KEY = (process.env.FIREBASE_API_KEY ?? '').trim();
 const FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
@@ -35,7 +37,6 @@ export async function POST(request: Request) {
 
   let firebaseRes: Response;
   try {
-    // Firebase Auth REST API でメール/パスワード認証
     firebaseRes = await fetch(getSignInUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,6 +66,28 @@ export async function POST(request: Request) {
   } catch (e) {
     console.error('[login] Firebase success response is not JSON:', rawBody.slice(0, 200), e);
     return NextResponse.json({ error: '認証レスポンスの解析に失敗しました' }, { status: 500 });
+  }
+
+  // 招待チェック + ユーザープロビジョニング
+  let decoded: Awaited<ReturnType<typeof verifyIdToken>>;
+  try {
+    decoded = await verifyIdToken(idToken);
+  } catch (e) {
+    console.error('[login] token verification failed:', e);
+    return NextResponse.json({ error: '認証トークンの検証に失敗しました' }, { status: 500 });
+  }
+
+  const result = await provisionUser(
+    decoded.uid,
+    decoded.email ?? email,
+    decoded.name ?? email,
+  );
+
+  if (result.status === 'not_invited') {
+    return NextResponse.json(
+      { error: 'このメールアドレスは招待されていません。管理者にお問い合わせください。' },
+      { status: 403 },
+    );
   }
 
   const res = NextResponse.json({ success: true, redirectUrl: '/' });

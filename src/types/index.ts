@@ -5,3 +5,4 @@ export * from './approval';
 export * from './api';
 export * from './project';
 export * from './expense';
+export * from './invitation';

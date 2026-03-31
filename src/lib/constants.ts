@@ -69,6 +69,7 @@ export const COLLECTIONS = {
   PROJECTS: 'projects',
   EXPENSES: 'expenses',
   EXPENSE_RULES: 'expenseRules',
+  INVITATIONS: 'invitations',
 } as const;
 
 // Firestore サブコレクション名
