@@ -15,10 +15,10 @@ const nextConfig: NextConfig = {
     '@google-cloud/storage',
     '@google-cloud/functions-framework',
     'puppeteer',
+    'puppeteer-core',
   ],
   outputFileTracingExcludes: {
     '*': [
-      'puppeteer-core/**/*',
       'vitest/**/*',
       'playwright/**/*',
       '@playwright/**/*',
