@@ -78,3 +78,26 @@ export async function updateNotificationSettings(
   }
   return updated;
 }
+
+// 通知設定 + Slack チャンネルまとめ更新
+export async function updateNotificationConfig(
+  userId: string,
+  config: { settings: NotificationSettings; slackChannel?: string }
+): Promise<User> {
+  const existing = await userRepo.getUserById(userId);
+  if (!existing) {
+    throw new Error(`User not found: ${userId}`);
+  }
+
+  const updates: Partial<User> = { notificationSettings: config.settings };
+  if (config.slackChannel !== undefined) {
+    updates.slackChannel = config.slackChannel;
+  }
+  await userRepo.updateUser(userId, updates);
+
+  const updated = await userRepo.getUserById(userId);
+  if (!updated) {
+    throw new Error(`User not found after update: ${userId}`);
+  }
+  return updated;
+}

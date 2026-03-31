@@ -1,0 +1,1 @@
+{"version":3,"file":"update-document.d.ts","sourceRoot":"","sources":["../../src/tools/update-document.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,uBAAuB,CAAC;AAEzD,eAAO,MAAM,oBAAoB;;;;;;;;;;;;;iBAkB/B,CAAC;AAEH,wBAAsB,cAAc,CAClC,IAAI,EAAE,CAAC,CAAC,KAAK,CAAC,OAAO,oBAAoB,CAAC,EAC1C,IAAI,EAAE,WAAW,oBAIlB"}

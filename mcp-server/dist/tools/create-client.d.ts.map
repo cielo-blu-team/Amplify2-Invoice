@@ -1,0 +1,1 @@
+{"version":3,"file":"create-client.d.ts","sourceRoot":"","sources":["../../src/tools/create-client.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,uBAAuB,CAAC;AAEzD,eAAO,MAAM,kBAAkB;;;;;;;;;iBAS7B,CAAC;AAEH,wBAAsB,YAAY,CAChC,IAAI,EAAE,CAAC,CAAC,KAAK,CAAC,OAAO,kBAAkB,CAAC,EACxC,IAAI,EAAE,WAAW,oBAGlB"}

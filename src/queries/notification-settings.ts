@@ -1,9 +1,16 @@
 import * as userService from '@/services/user.service';
 import type { NotificationSettings } from '@/types';
 
-export async function getNotificationSettings(
-  userId: string
-): Promise<NotificationSettings | null> {
+export interface NotificationConfig {
+  settings: NotificationSettings;
+  slackChannel: string;
+}
+
+export async function getNotificationConfig(userId: string): Promise<NotificationConfig | null> {
   const user = await userService.getUser(userId);
-  return user?.notificationSettings ?? null;
+  if (!user) return null;
+  return {
+    settings: user.notificationSettings,
+    slackChannel: user.slackChannel ?? '',
+  };
 }

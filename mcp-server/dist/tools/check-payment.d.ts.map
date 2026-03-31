@@ -1,0 +1,1 @@
+{"version":3,"file":"check-payment.d.ts","sourceRoot":"","sources":["../../src/tools/check-payment.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,uBAAuB,CAAC;AAEzD,eAAO,MAAM,kBAAkB;;iBAE7B,CAAC;AAEH,wBAAsB,YAAY,CAChC,IAAI,EAAE,CAAC,CAAC,KAAK,CAAC,OAAO,kBAAkB,CAAC,EACxC,IAAI,EAAE,WAAW,oBAQlB"}

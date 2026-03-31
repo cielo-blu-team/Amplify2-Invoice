@@ -122,7 +122,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.repository" = "assertion.repository"
   }
 
-  attribute_condition = "assertion.repository == 'cielo-blu-team/Amplify2-Invoice'"
+  attribute_condition = "assertion.repository == 'cielo-blu-team/Courage-Invoice'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
@@ -133,5 +133,5 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 resource "google_service_account_iam_member" "workload_identity_user" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/cielo-blu-team/Amplify2-Invoice"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/cielo-blu-team/Courage-Invoice"
 }

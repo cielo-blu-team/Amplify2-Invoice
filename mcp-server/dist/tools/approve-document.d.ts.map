@@ -1,0 +1,1 @@
+{"version":3,"file":"approve-document.d.ts","sourceRoot":"","sources":["../../src/tools/approve-document.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,uBAAuB,CAAC;AAEzD,eAAO,MAAM,qBAAqB;;;;;;;iBAIhC,CAAC;AAEH,wBAAsB,eAAe,CACnC,IAAI,EAAE,CAAC,CAAC,KAAK,CAAC,OAAO,qBAAqB,CAAC,EAC3C,IAAI,EAAE,WAAW,oBASlB"}

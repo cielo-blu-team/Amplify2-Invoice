@@ -11,6 +11,7 @@ import type { NotificationSettings } from '@/types';
 
 interface Props {
   initialSettings: NotificationSettings | null;
+  initialSlackChannel: string;
 }
 
 const DEFAULT: NotificationSettings = {
@@ -43,11 +44,11 @@ function SwitchRow({ label, description, checked, onCheckedChange }: SwitchRowPr
   );
 }
 
-export default function NotificationSettingsClient({ initialSettings }: Props) {
+export default function NotificationSettingsClient({ initialSettings, initialSlackChannel }: Props) {
   const [settings, setSettings] = useState<NotificationSettings>(
     initialSettings ?? DEFAULT
   );
-  const [slackChannel, setSlackChannel] = useState('#approvals');
+  const [slackChannel, setSlackChannel] = useState(initialSlackChannel);
   const [loading, setLoading] = useState(false);
 
   const toggle = (key: keyof NotificationSettings) => {
@@ -57,7 +58,7 @@ export default function NotificationSettingsClient({ initialSettings }: Props) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const result = await updateNotificationSettings('current-user', settings);
+      const result = await updateNotificationSettings('', { settings, slackChannel });
       if (!result.success) {
         showError(result.error.message);
       } else {

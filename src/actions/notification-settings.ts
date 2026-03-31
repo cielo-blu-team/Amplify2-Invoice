@@ -1,15 +1,23 @@
 'use server';
 
 import * as userService from '@/services/user.service';
-import { notificationSettingsSchema } from '@/schemas/user.schema';
+import { saveNotificationConfigSchema } from '@/schemas/user.schema';
+import { getCurrentUserId } from '@/lib/auth-server';
 import type { ApiResponse, NotificationSettings } from '@/types';
 
+export interface NotificationConfigInput {
+  settings: NotificationSettings;
+  slackChannel?: string;
+}
+
 export async function updateNotificationSettings(
-  userId: string,
-  settings: unknown
+  _unused: string,
+  input: NotificationConfigInput,
 ): Promise<ApiResponse<NotificationSettings>> {
   try {
-    const parsed = notificationSettingsSchema.safeParse(settings);
+    const userId = await getCurrentUserId();
+
+    const parsed = saveNotificationConfigSchema.safeParse(input);
     if (!parsed.success) {
       return {
         success: false,
@@ -20,19 +28,14 @@ export async function updateNotificationSettings(
         },
       };
     }
-    const user = await userService.updateNotificationSettings(userId, parsed.data);
+
+    const user = await userService.updateNotificationConfig(userId, parsed.data);
     return { success: true, data: user.notificationSettings };
   } catch (err) {
     const message = err instanceof Error ? err.message : '予期しないエラーが発生しました';
     if (message.includes('not found')) {
-      return {
-        success: false,
-        error: { code: 'NOT_FOUND', message },
-      };
+      return { success: false, error: { code: 'NOT_FOUND', message } };
     }
-    return {
-      success: false,
-      error: { code: 'INTERNAL_ERROR', message },
-    };
+    return { success: false, error: { code: 'INTERNAL_ERROR', message } };
   }
 }

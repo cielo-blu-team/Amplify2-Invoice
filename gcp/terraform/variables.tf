@@ -18,7 +18,7 @@ variable "environment" {
 variable "app_name" {
   description = "アプリケーション名"
   type        = string
-  default     = "amplify2-invoice"
+  default     = "courage-invoice"
 }
 
 variable "cloud_run_image" {

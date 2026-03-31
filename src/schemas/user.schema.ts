@@ -33,3 +33,9 @@ export const updateNotificationSettingsSchema = z.object({
   userId: z.string().min(1),
   settings: notificationSettingsSchema,
 });
+
+// 通知設定 + Slack チャンネル設定まとめスキーマ
+export const saveNotificationConfigSchema = z.object({
+  settings: notificationSettingsSchema,
+  slackChannel: z.string().max(100).optional(),
+});

@@ -25,7 +25,7 @@ import { checkPayment, checkPaymentSchema } from './tools/check-payment.js';
 import { getDashboard, getDashboardSchema } from './tools/get-dashboard.js';
 
 const server = new McpServer({
-  name: 'amplify2-invoice',
+  name: 'courage-invoice',
   version: '1.0.0',
 });
 

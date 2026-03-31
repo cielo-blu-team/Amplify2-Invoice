@@ -1,8 +1,15 @@
 export const dynamic = 'force-dynamic';
-import { getNotificationSettings } from '@/queries/notification-settings';
+import { getCurrentUserId } from '@/lib/auth-server';
+import { getNotificationConfig } from '@/queries/notification-settings';
 import NotificationSettingsClient from './NotificationSettingsClient';
 
 export default async function NotificationSettingsPage() {
-  const settings = await getNotificationSettings('current-user').catch(() => null);
-  return <NotificationSettingsClient initialSettings={settings} />;
+  const userId = await getCurrentUserId();
+  const config = await getNotificationConfig(userId).catch(() => null);
+  return (
+    <NotificationSettingsClient
+      initialSettings={config?.settings ?? null}
+      initialSlackChannel={config?.slackChannel ?? ''}
+    />
+  );
 }

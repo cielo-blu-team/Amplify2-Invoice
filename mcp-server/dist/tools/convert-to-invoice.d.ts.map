@@ -1,0 +1,1 @@
+{"version":3,"file":"convert-to-invoice.d.ts","sourceRoot":"","sources":["../../src/tools/convert-to-invoice.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAExB,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,uBAAuB,CAAC;AAEzD,eAAO,MAAM,sBAAsB;;;iBAGjC,CAAC;AAEH,wBAAsB,gBAAgB,CACpC,IAAI,EAAE,CAAC,CAAC,KAAK,CAAC,OAAO,sBAAsB,CAAC,EAC5C,IAAI,EAAE,WAAW,oBAQlB"}
