@@ -14,8 +14,7 @@ const nextConfig: NextConfig = {
     '@google-cloud/firestore',
     '@google-cloud/storage',
     '@google-cloud/functions-framework',
-    'puppeteer',
-    'puppeteer-core',
+    '@react-pdf/renderer',
   ],
   outputFileTracingExcludes: {
     '*': [
