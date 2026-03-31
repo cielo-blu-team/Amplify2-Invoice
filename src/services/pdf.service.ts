@@ -226,8 +226,10 @@ export async function generatePdf(params: {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--single-process',
       '--no-zygote',
+      '--disable-crash-reporter',
+      '--disable-extensions',
+      '--no-first-run',
     ],
   });
 
