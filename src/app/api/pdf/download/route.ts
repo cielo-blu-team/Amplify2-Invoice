@@ -1,5 +1,6 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
-import { storage, BUCKET_NAME } from '@/lib/storage-gcs';
 import { getCurrentUserId } from '@/lib/auth-server';
 
 export async function GET(request: NextRequest) {
@@ -21,6 +22,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // ビルド時評価を避けるため動的インポート
+    const { storage, BUCKET_NAME } = await import('@/lib/storage-gcs');
     const [buffer] = await storage.bucket(BUCKET_NAME!).file(key).download();
     const filename = key.split('/').pop() ?? 'document.pdf';
 
