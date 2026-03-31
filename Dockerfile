@@ -28,6 +28,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# PDF生成用 日本語フォント（IPA ゴシック）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-ipafont-gothic \
+    && rm -rf /var/lib/apt/lists/*
+
 # Next.js standalone モードの出力をコピー
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

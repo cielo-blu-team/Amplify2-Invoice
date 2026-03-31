@@ -9,21 +9,32 @@ import {
   renderToBuffer,
 } from '@react-pdf/renderer';
 import path from 'path';
+import { existsSync } from 'fs';
 import type { DocumentHeader, LineItem, CompanySettings } from '@/types';
 import { uploadDocument } from '@/lib/storage-gcs';
 import { calculateTax } from '@/lib/tax-calculator';
 
-// ─── フォント登録 ─────────────────────────────────────────────────────────────
+// ─── フォント登録（遅延初期化） ───────────────────────────────────────────────
 
-const FONT_DIR = path.join(process.cwd(), 'pdf-templates', 'fonts');
+// Cloud Run (Linux): fonts-ipafont-gothic でインストールされるパス候補
+const IPA_FONT_CANDIDATES = [
+  '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf',
+  '/usr/share/fonts/truetype/ipafont-gothic/ipag.ttf',
+  '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf',
+];
 
-Font.register({
-  family: 'NotoSansJP',
-  fonts: [
-    { src: path.join(FONT_DIR, 'NotoSansJP-Regular.ttf'), fontWeight: 400 },
-    { src: path.join(FONT_DIR, 'NotoSansJP-Bold.ttf'), fontWeight: 700 },
-  ],
-});
+// 開発環境フォールバック（CDN）
+const FALLBACK_FONT_URL =
+  'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.2.9/files/noto-sans-jp-119-400-normal.woff';
+
+let fontRegistered = false;
+
+function ensureFonts() {
+  if (fontRegistered) return;
+  const src = IPA_FONT_CANDIDATES.find(existsSync) ?? FALLBACK_FONT_URL;
+  Font.register({ family: 'Japanese', src });
+  fontRegistered = true;
+}
 
 // ─── テンプレートデータ型 ────────────────────────────────────────────────────
 
@@ -89,7 +100,7 @@ const BORDER = '#d1d5db';
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: 'NotoSansJP',
+    fontFamily: 'Japanese',
     fontSize: 9,
     color: TEXT,
     paddingTop: 28,
@@ -528,6 +539,7 @@ export async function generatePdf(params: {
 }): Promise<string> {
   const { doc, lineItems, settings, cancelled = false } = params;
 
+  ensureFonts();
   const data = buildTemplateData(doc, lineItems, settings, cancelled);
 
   const element =

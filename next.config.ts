@@ -7,8 +7,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // firebase-admin / @google-cloud / puppeteer はサーバー専用のためバンドルせず Node.js の require() を使う
-  // firebase クライアント SDK はブラウザでバンドルが必要なので含めない
+  // サーバー専用パッケージ（Node.js require() を使用、バンドルしない）
   serverExternalPackages: [
     'firebase-admin',
     '@google-cloud/firestore',
