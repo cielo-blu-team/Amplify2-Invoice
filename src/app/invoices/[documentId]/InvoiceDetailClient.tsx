@@ -26,6 +26,7 @@ import {
 } from '@/actions/document';
 import { requestApproval } from '@/actions/approval';
 import { updatePaymentStatus } from '@/actions/payment';
+import { generatePdfAction } from '@/actions/pdf';
 import { cn } from '@/lib/utils';
 import type { DocumentHeader } from '@/types';
 
@@ -50,6 +51,7 @@ function formatAmount(n: number): string {
 export default function InvoiceDetailClient({ document: doc, userId, userName }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Cancel modal
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -181,19 +183,27 @@ export default function InvoiceDetailClient({ document: doc, userId, userName }:
                   <p className="text-lg font-medium" style={{ color: '#374151' }}>{doc.clientName}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {doc.pdfUrl && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={doc.pdfUrl} target="_blank" rel="noopener noreferrer" download>
-                        PDFダウンロード
-                      </a>
-                    </Button>
-                  )}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => router.push(`/invoices/${doc.documentId}/preview`)}
+                    disabled={pdfLoading}
+                    onClick={async () => {
+                      setPdfLoading(true);
+                      try {
+                        const result = await generatePdfAction(doc.documentId);
+                        if (!result.success) {
+                          showError(result.error.message);
+                        } else {
+                          window.open(result.data.pdfUrl, '_blank');
+                        }
+                      } catch {
+                        showError('PDF生成に失敗しました');
+                      } finally {
+                        setPdfLoading(false);
+                      }
+                    }}
                   >
-                    PDFプレビュー
+                    {pdfLoading ? 'PDFダウンロード中...' : 'PDFダウンロード'}
                   </Button>
                 </div>
               </div>
