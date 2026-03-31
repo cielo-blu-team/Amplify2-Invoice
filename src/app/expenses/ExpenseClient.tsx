@@ -110,7 +110,7 @@ export default function ExpenseClient({ role, initialExpenses, initialRules, ini
 
   // フィルタ
   const [filterMonth, setFilterMonth] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [filterKeyword, setFilterKeyword] = useState('');
 
   // 経費ダイアログ
@@ -132,7 +132,7 @@ export default function ExpenseClient({ role, initialExpenses, initialRules, ini
 
   const filteredExpenses = expenses.filter((e) => {
     if (filterMonth && !e.date.startsWith(filterMonth)) return false;
-    if (filterCategory && e.category !== filterCategory) return false;
+    if (filterCategory && filterCategory !== 'all' && e.category !== filterCategory) return false;
     if (filterKeyword) {
       const kw = filterKeyword.toLowerCase();
       if (!e.vendor.toLowerCase().includes(kw) && !e.description.toLowerCase().includes(kw)) return false;
@@ -146,7 +146,7 @@ export default function ExpenseClient({ role, initialExpenses, initialRules, ini
 
   const handleSearch = () => {
     startTransition(async () => {
-      const res = await listExpenses({ month: filterMonth || undefined, category: filterCategory || undefined, keyword: filterKeyword || undefined });
+      const res = await listExpenses({ month: filterMonth || undefined, category: (filterCategory && filterCategory !== 'all') ? filterCategory : undefined, keyword: filterKeyword || undefined });
       if (res.success && res.data) setExpenses(res.data.items);
     });
   };
@@ -340,7 +340,7 @@ export default function ExpenseClient({ role, initialExpenses, initialRules, ini
               <Select value={filterCategory} onValueChange={setFilterCategory}>
                 <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="すべて" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">すべて</SelectItem>
+                  <SelectItem value="all">すべて</SelectItem>
                   {CATEGORIES.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
