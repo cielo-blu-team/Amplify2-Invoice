@@ -106,8 +106,10 @@ export async function invokeMcpTool(
   args: Record<string, unknown>,
   token: string,
 ): Promise<unknown> {
-  const baseUrl = process.env.MCP_SERVER_URL ?? 'http://localhost:3001';
-  const res = await fetch(`${baseUrl}/tools/${tool}`, {
+  // MCP_SERVER_URL: Cloud Run の Next.js アプリ URL（末尾スラッシュなし）
+  // 例: https://courage-invoice-xxx.run.app
+  const baseUrl = process.env.MCP_SERVER_URL ?? 'http://localhost:3000';
+  const res = await fetch(`${baseUrl}/api/mcp/tools/${tool}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(args),

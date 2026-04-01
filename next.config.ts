@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
     '@google-cloud/storage',
     '@google-cloud/functions-framework',
     '@react-pdf/renderer',
+    '@modelcontextprotocol/sdk',
   ],
   outputFileTracingExcludes: {
     '*': [
