@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// 認証不要のパス
-const PUBLIC_PATHS = ['/login', '/api/auth'];
+// 認証不要のパス（MCP・Slack エンドポイントは外部から呼ばれるため除外）
+const PUBLIC_PATHS = ['/login', '/api/auth', '/api/mcp', '/api/slack'];
 
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
