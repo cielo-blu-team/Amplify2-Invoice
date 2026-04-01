@@ -7,7 +7,6 @@ import * as documentService from '@/services/document.service';
 import * as documentRepo from '@/repositories/document.repository';
 import * as clientService from '@/services/client.service';
 import * as approvalService from '@/services/approval.service';
-import { generatePdfAction } from '@/actions/pdf';
 import type { LineItemInput, DocumentListFilters } from '@/types/document';
 
 // ────────────────────────────────────────────────────────────────
@@ -223,6 +222,8 @@ export async function deleteDocument(args: z.infer<typeof deleteDocumentSchema>)
 }
 
 export async function generatePdf(args: z.infer<typeof generatePdfSchema>) {
+  // ビルド時評価を避けるため動的インポート（storage-gcs はランタイムのみ）
+  const { generatePdfAction } = await import('@/actions/pdf');
   const result = await generatePdfAction(args.documentId);
   if (!result.success) throw new Error(result.error?.message ?? 'PDF生成失敗');
   return { pdfUrl: result.data!.pdfUrl };
