@@ -69,6 +69,7 @@ export default function UsersClient({ users: initialUsers, invitations: initialI
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('user');
   const [inviting, setInviting] = useState(false);
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
 
   const activeUsers = users.filter((u) => u.isActive);
 
@@ -85,7 +86,14 @@ export default function UsersClient({ users: initialUsers, invitations: initialI
         setInviteEmail('');
         setInviteRole('user');
         setShowInviteForm(false);
-        showSuccess('招待を作成しました（有効期限: 7日間）');
+        const url = (result as { inviteUrl?: string }).inviteUrl ?? null;
+        const sent = (result as { emailSent?: boolean }).emailSent ?? false;
+        setLastInviteUrl(url);
+        if (sent) {
+          showSuccess('招待メールを送信しました（有効期限: 7日間）');
+        } else {
+          showSuccess('招待を作成しました。下の招待 URL を相手に共有してください。');
+        }
       }
     } catch (e) {
       showError(e instanceof Error ? e.message : '招待の作成に失敗しました');
@@ -126,6 +134,26 @@ export default function UsersClient({ users: initialUsers, invitations: initialI
             ユーザー招待
           </Button>
         </div>
+
+        {/* 招待URL（メール未送信時のフォールバック） */}
+        {lastInviteUrl && (
+          <div className="border border-blue-200 rounded-lg p-4 bg-blue-50 space-y-2">
+            <p className="text-sm font-medium text-blue-800">招待 URL（相手に共有してください）</p>
+            <div className="flex gap-2 items-center">
+              <code className="flex-1 text-xs bg-white border border-blue-200 rounded px-3 py-2 break-all text-blue-700">
+                {lastInviteUrl}
+              </code>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { navigator.clipboard.writeText(lastInviteUrl); }}
+              >
+                コピー
+              </Button>
+            </div>
+            <p className="text-xs text-blue-600">有効期限: 7日間。この URL を知っている人だけがアカウントを作成できます。</p>
+          </div>
+        )}
 
         {/* 招待フォーム */}
         {showInviteForm && (

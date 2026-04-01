@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { authorize } from '@/lib/auth';
 import { getCurrentUserId, getCurrentUserDisplayName, getCurrentUserRole } from '@/lib/auth-server';
 import * as invitationRepo from '@/repositories/invitation.repository';
+import { sendInvitationEmail, getInvitationUrl } from '@/lib/email';
 import type { InvitationCreateInput } from '@/types/invitation';
 
 export async function listInvitations() {
@@ -34,8 +35,24 @@ export async function createInvitation(input: InvitationCreateInput) {
   };
 
   await invitationRepo.createInvitation(invitation);
+
+  // 招待メールを送信
+  const emailResult = await sendInvitationEmail({
+    to: invitation.email,
+    invitationId: invitation.id,
+    inviterName: createdByName,
+    role: invitation.role,
+    expiresAt: invitation.expiresAt,
+  });
+
   revalidatePath('/settings/users');
-  return { success: true, invitation };
+  return {
+    success: true,
+    invitation,
+    inviteUrl: getInvitationUrl(invitation.id),
+    emailSent: emailResult.ok,
+    emailError: emailResult.error,
+  };
 }
 
 export async function deleteInvitation(id: string) {
