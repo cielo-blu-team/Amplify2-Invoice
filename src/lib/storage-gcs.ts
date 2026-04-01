@@ -14,11 +14,15 @@ const storage = new Storage({
 const BUCKET_NAME = process.env.GCS_BUCKET_NAME;
 const ARCHIVE_BUCKET_NAME = process.env.GCS_ARCHIVE_BUCKET_NAME;
 
-if (!BUCKET_NAME) {
-  throw new Error('GCS_BUCKET_NAME が設定されていません。環境変数を確認してください。');
+// モジュールロード時ではなく、実際の呼び出し時にバリデーション（ビルド時エラー回避）
+function requireBucket(): string {
+  if (!BUCKET_NAME) throw new Error('GCS_BUCKET_NAME が設定されていません。環境変数を確認してください。');
+  return BUCKET_NAME;
 }
-if (!ARCHIVE_BUCKET_NAME) {
-  throw new Error('GCS_ARCHIVE_BUCKET_NAME が設定されていません。環境変数を確認してください。');
+
+function requireArchiveBucket(): string {
+  if (!ARCHIVE_BUCKET_NAME) throw new Error('GCS_ARCHIVE_BUCKET_NAME が設定されていません。環境変数を確認してください。');
+  return ARCHIVE_BUCKET_NAME;
 }
 
 export async function uploadDocument(
@@ -26,8 +30,9 @@ export async function uploadDocument(
   body: Buffer | Uint8Array,
   contentType: string,
 ): Promise<string> {
+  const bucket = requireBucket();
   const fullKey = `${GCS_PATHS.DOCUMENTS}/${key}`;
-  const file = storage.bucket(BUCKET_NAME).file(fullKey);
+  const file = storage.bucket(bucket).file(fullKey);
   await file.save(Buffer.from(body), {
     metadata: { contentType },
     resumable: false,
@@ -40,8 +45,9 @@ export async function uploadImage(
   body: Buffer | Uint8Array,
   contentType: string,
 ): Promise<string> {
+  const bucket = requireBucket();
   const fullKey = `${GCS_PATHS.IMAGES}/${key}`;
-  const file = storage.bucket(BUCKET_NAME).file(fullKey);
+  const file = storage.bucket(bucket).file(fullKey);
   await file.save(Buffer.from(body), {
     metadata: { contentType },
     resumable: false,
@@ -51,7 +57,7 @@ export async function uploadImage(
 
 export async function getObject(key: string): Promise<Readable | null> {
   try {
-    const file = storage.bucket(BUCKET_NAME).file(key);
+    const file = storage.bucket(requireBucket()).file(key);
     return file.createReadStream();
   } catch {
     return null;
@@ -66,8 +72,9 @@ export async function archiveDocument(
   body: Buffer | Uint8Array,
   contentType: string,
 ): Promise<string> {
+  const bucket = requireArchiveBucket();
   const fullKey = `${GCS_PATHS.ARCHIVES}/${key}`;
-  const file = storage.bucket(ARCHIVE_BUCKET_NAME).file(fullKey);
+  const file = storage.bucket(bucket).file(fullKey);
   await file.save(Buffer.from(body), {
     metadata: { contentType },
     resumable: false,
@@ -80,7 +87,7 @@ export async function archiveDocument(
  * S3 getSignedUrl 相当
  */
 export async function getSignedUrl(key: string, expiresInSeconds = 3600): Promise<string> {
-  const [url] = await storage.bucket(BUCKET_NAME).file(key).getSignedUrl({
+  const [url] = await storage.bucket(requireBucket()).file(key).getSignedUrl({
     action: 'read',
     expires: Date.now() + expiresInSeconds * 1000,
   });
