@@ -157,8 +157,13 @@ async function handler(request: Request): Promise<Response> {
   return transport.handleRequest(request);
 }
 
-export async function GET(request: Request): Promise<Response> {
-  return handler(request);
+// ステートレスモードでは SSE GET は不要（Cloud Run LB が 30s で 504 を返すため）
+// 405 を返すことでクライアントは POST only モードにフォールバックする
+export async function GET(): Promise<Response> {
+  return new Response(null, {
+    status: 405,
+    headers: { Allow: 'POST' },
+  });
 }
 
 export async function POST(request: Request): Promise<Response> {
