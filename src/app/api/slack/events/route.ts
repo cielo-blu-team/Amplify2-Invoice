@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseSlackMessage, invokeMcpTool } from '@/lib/slack-mcp-bridge';
+import { handleSlackMessage } from '@/lib/slack-ai-handler';
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN ?? '';
 
@@ -31,67 +31,43 @@ export async function POST(request: Request) {
 
   const text: string = (event.text ?? '').replace(/<@[^>]+>\s*/g, '').trim();
   const channel: string = event.channel;
+  const userId: string = event.user ?? 'unknown';
+
+  // DM はユーザーごと、チャンネルメンションはチャンネルごとに会話を管理
+  const conversationKey = event.channel_type === 'im' ? `dm:${userId}` : `ch:${channel}`;
 
   // コマンドを非同期で処理（Slack の 3秒タイムアウトに引っかからないよう即レスポンス）
-  handleCommand(text, channel, SLACK_BOT_TOKEN).catch((e) =>
-    console.error('[SlackBot] handleCommand error:', e),
+  handleConversation(text, channel, conversationKey).catch((e) =>
+    console.error('[SlackBot] handleConversation error:', e),
   );
 
   return NextResponse.json({ ok: true });
 }
 
-async function handleCommand(text: string, channel: string, token: string): Promise<void> {
-  const parsed = parseSlackMessage(text);
-
-  if (!parsed) {
-    await postSlackMessage(channel, token, '認識できないコマンドです。`ヘルプ` と送信すると使い方を確認できます。');
-    return;
-  }
-
-  // ヘルプはそのまま返す
-  if (parsed.tool === 'help') {
-    await postSlackMessage(channel, token, parsed.replyHint ?? 'ヘルプ');
-    return;
-  }
-
-  if (!token) {
-    await postSlackMessage(channel, token, 'SLACK_BOT_TOKEN が設定されていないため返信できません。');
+async function handleConversation(
+  text: string,
+  channel: string,
+  conversationKey: string,
+): Promise<void> {
+  if (!SLACK_BOT_TOKEN) {
+    await postSlackMessage(channel, 'SLACK_BOT_TOKEN が設定されていないため返信できません。');
     return;
   }
 
   try {
-    const result = await invokeMcpTool(parsed.tool, parsed.args, token);
-    const reply = formatMcpResult(parsed.tool, result);
-    await postSlackMessage(channel, token, reply);
+    const reply = await handleSlackMessage(conversationKey, text);
+    await postSlackMessage(channel, reply);
   } catch (e) {
-    console.error('[SlackBot] MCP error:', e);
-    await postSlackMessage(channel, token, 'ツール呼び出しに失敗しました。しばらく待ってから再試行してください。');
+    console.error('[SlackBot] AI error:', e);
+    await postSlackMessage(channel, 'エラーが発生しました。しばらく待ってから再試行してください。');
   }
 }
 
-function formatMcpResult(tool: string, result: unknown): string {
-  if (typeof result === 'string') return result;
-  if (result && typeof result === 'object') {
-    const r = result as Record<string, unknown>;
-    if (r.error) return `エラー: ${r.error}`;
-    if (r.documentNumber) return `✅ 完了: ${r.documentNumber}`;
-    if (Array.isArray(r.items)) {
-      const items = r.items as Array<Record<string, unknown>>;
-      if (items.length === 0) return '該当する帳票はありません。';
-      return items
-        .slice(0, 10)
-        .map((d) => `• ${d.documentNumber ?? d.documentId} (${d.status ?? ''}) ${d.clientName ?? ''}`)
-        .join('\n');
-    }
-  }
-  return `ツール \`${tool}\` を実行しました。`;
-}
-
-async function postSlackMessage(channel: string, token: string, text: string): Promise<void> {
-  if (!token) return;
+async function postSlackMessage(channel: string, text: string): Promise<void> {
+  if (!SLACK_BOT_TOKEN) return;
   await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
     body: JSON.stringify({ channel, text }),
   });
 }
