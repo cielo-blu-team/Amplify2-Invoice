@@ -8,6 +8,15 @@ import * as documentRepo from '@/repositories/document.repository';
 import * as clientService from '@/services/client.service';
 import * as approvalService from '@/services/approval.service';
 import type { LineItemInput, DocumentListFilters } from '@/types/document';
+import { authorize } from '@/lib/auth';
+import type { Role } from '@/types/user';
+
+// MCP_SYSTEM_ROLE 環境変数でロールを制御（デフォルト: admin）
+function getMcpRole(): Role {
+  const r = process.env.MCP_SYSTEM_ROLE;
+  if (r === 'user' || r === 'accountant' || r === 'admin') return r;
+  return 'admin';
+}
 
 // ────────────────────────────────────────────────────────────────
 // スキーマ定義
@@ -152,6 +161,7 @@ function toLineItems(lineItems: Array<{ description: string; quantity: number; u
 // ────────────────────────────────────────────────────────────────
 
 export async function createEstimate(args: z.infer<typeof createEstimateSchema>, userId: string) {
+  authorize(getMcpRole(), 'document:create');
   const { clientId, clientName } = await resolveClientId(args.clientName, userId);
   const today = new Date().toISOString().slice(0, 10);
   return documentService.createDocument({
@@ -168,6 +178,7 @@ export async function createEstimate(args: z.infer<typeof createEstimateSchema>,
 }
 
 export async function createInvoice(args: z.infer<typeof createInvoiceSchema>, userId: string) {
+  authorize(getMcpRole(), 'document:create');
   const { clientId, clientName } = await resolveClientId(args.clientName, userId);
   const today = new Date().toISOString().slice(0, 10);
   return documentService.createDocument({
@@ -184,10 +195,12 @@ export async function createInvoice(args: z.infer<typeof createInvoiceSchema>, u
 }
 
 export async function convertToInvoice(args: z.infer<typeof convertToInvoiceSchema>, userId: string) {
+  authorize(getMcpRole(), 'document:create');
   return documentService.convertToInvoice(args.documentId, { dueDate: args.dueDate, createdBy: userId });
 }
 
 export async function getDocument(args: z.infer<typeof getDocumentSchema>) {
+  authorize(getMcpRole(), 'document:read');
   const doc = await documentService.getDocument(args.documentId);
   if (!doc) throw new Error(`帳票が見つかりません: ${args.documentId}`);
   const lineItems = await documentRepo.getDocumentLineItems(args.documentId);
@@ -195,6 +208,7 @@ export async function getDocument(args: z.infer<typeof getDocumentSchema>) {
 }
 
 export async function listDocuments(args: z.infer<typeof listDocumentsSchema>) {
+  authorize(getMcpRole(), 'document:read');
   const filters: DocumentListFilters = {
     ...(args.documentType && { documentType: args.documentType }),
     ...(args.status && { status: args.status.split(',').map(s => s.trim()) as import('@/types/document').DocumentStatus[] }),
@@ -208,6 +222,7 @@ export async function listDocuments(args: z.infer<typeof listDocumentsSchema>) {
 }
 
 export async function updateDocument(args: z.infer<typeof updateDocumentSchema>) {
+  authorize(getMcpRole(), 'document:update');
   const { documentId, lineItems, ...rest } = args;
   const updates = {
     ...rest,
@@ -217,11 +232,13 @@ export async function updateDocument(args: z.infer<typeof updateDocumentSchema>)
 }
 
 export async function deleteDocument(args: z.infer<typeof deleteDocumentSchema>) {
+  authorize(getMcpRole(), 'document:delete');
   await documentService.deleteDocument(args.documentId);
   return { success: true };
 }
 
 export async function generatePdf(args: z.infer<typeof generatePdfSchema>) {
+  authorize(getMcpRole(), 'document:read');
   // ビルド時評価を避けるため動的インポート（storage-gcs はランタイムのみ）
   const { generatePdfAction } = await import('@/actions/pdf');
   const result = await generatePdfAction(args.documentId);
@@ -231,6 +248,16 @@ export async function generatePdf(args: z.infer<typeof generatePdfSchema>) {
 
 export async function updateStatus(args: z.infer<typeof updateStatusSchema>, _userId: string) {
   const { documentId, newStatus } = args;
+  // ステータスごとに必要な権限を確認
+  if (newStatus === 'approved' || newStatus === 'rejected') {
+    authorize(getMcpRole(), 'document:approve');
+  } else if (newStatus === 'sent') {
+    authorize(getMcpRole(), 'document:send');
+  } else if (newStatus === 'cancelled') {
+    authorize(getMcpRole(), 'document:cancel');
+  } else {
+    authorize(getMcpRole(), 'document:update');
+  }
   if (newStatus === 'sent') {
     return documentService.sendDocument(documentId);
   }
@@ -240,6 +267,7 @@ export async function updateStatus(args: z.infer<typeof updateStatusSchema>, _us
 }
 
 export async function approveDoc(args: z.infer<typeof approveDocumentSchema>, userId: string) {
+  authorize(getMcpRole(), 'document:approve');
   if (args.action === 'approve') {
     return approvalService.approveDocument({
       documentId: args.documentId,
@@ -258,6 +286,7 @@ export async function approveDoc(args: z.infer<typeof approveDocumentSchema>, us
 }
 
 export async function listClients(args: z.infer<typeof listClientsSchema>) {
+  authorize(getMcpRole(), 'document:read');
   if (args.name) {
     return clientService.searchClients(args.name, args.limit, args.cursor);
   }
@@ -265,6 +294,7 @@ export async function listClients(args: z.infer<typeof listClientsSchema>) {
 }
 
 export async function createClientTool(args: z.infer<typeof createClientSchema>) {
+  authorize(getMcpRole(), 'client:create');
   return clientService.createClient({
     clientName: args.clientName,
     businessType: 'other',
@@ -276,11 +306,13 @@ export async function createClientTool(args: z.infer<typeof createClientSchema>)
 }
 
 export async function updateClientTool(args: z.infer<typeof updateClientSchema>) {
+  authorize(getMcpRole(), 'client:update');
   const { clientId, ...updates } = args;
   return clientService.updateClient(clientId, updates);
 }
 
 export async function getDashboard(args: z.infer<typeof getDashboardSchema>) {
+  authorize(getMcpRole(), 'document:read');
   const { dashboardService } = await import('@/services/dashboard.service');
   return dashboardService.getDashboardData();
 }
