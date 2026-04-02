@@ -159,7 +159,11 @@ async function handler(request: Request): Promise<Response> {
   if (!verifyApiKey(request)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Bearer ヘッダーを明示することで OAuth 自動検出フローへの誤ったフォールバックを防ぐ
+        'WWW-Authenticate': 'Bearer realm="courage-invoice"',
+      },
     });
   }
   // ステートレスモード: リクエストごとに新しいトランスポートとサーバーを作成
