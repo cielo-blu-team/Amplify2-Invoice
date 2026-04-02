@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Zap, Eye, EyeOff } from 'lucide-react';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,23 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // リダイレクト方式でログインした場合の結果を受け取る
+  useEffect(() => {
+    setLoading(true);
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result) {
+          const idToken = await result.user.getIdToken();
+          await completeGoogleSignIn(idToken);
+        }
+      })
+      .catch(() => {
+        setError('Googleログインに失敗しました');
+      })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,33 +65,44 @@ function LoginForm() {
     }
   };
 
+  const completeGoogleSignIn = async (idToken: string) => {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? 'Googleログインに失敗しました');
+      return;
+    }
+    router.push(from);
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
     try {
+      // まずポップアップを試みる
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
-
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Googleログインに失敗しました');
+      await completeGoogleSignIn(idToken);
+    } catch (e: unknown) {
+      const code = e instanceof Error && 'code' in e ? (e as { code: string }).code : '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // ユーザーがポップアップを閉じた場合はエラー表示しない
+        setLoading(false);
         return;
       }
-
-      router.push(from);
-    } catch (e: unknown) {
-      if (e instanceof Error && 'code' in e && (e as { code: string }).code === 'auth/popup-closed-by-user') {
-        // ユーザーがポップアップを閉じた場合はエラー表示しない
-        return;
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        // ポップアップがブロックされた場合はリダイレクト方式にフォールバック
+        await signInWithRedirect(auth, googleProvider);
+        return; // リダイレクト後はページ遷移するのでここには戻らない
       }
       setError('Googleログインに失敗しました');
-    } finally {
       setLoading(false);
     }
   };
