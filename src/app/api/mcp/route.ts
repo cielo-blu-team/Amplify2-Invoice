@@ -14,14 +14,6 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import * as tools from '@/lib/mcp-tools';
 
 const SYSTEM_USER_ID = process.env.MCP_SYSTEM_USER_ID ?? 'mcp-system';
-const MCP_API_KEY = process.env.MCP_API_KEY;
-
-function verifyApiKey(request: Request): boolean {
-  if (!MCP_API_KEY) return true; // 未設定時はスキップ（後方互換）
-  const auth = request.headers.get('authorization') ?? '';
-  const key = auth.startsWith('Bearer ') ? auth.slice(7) : auth;
-  return key === MCP_API_KEY;
-}
 
 function createMcpServer(): McpServer {
   const server = new McpServer({ name: 'courage-invoice', version: '1.0.0' });
@@ -156,16 +148,6 @@ function createMcpServer(): McpServer {
 }
 
 async function handler(request: Request): Promise<Response> {
-  if (!verifyApiKey(request)) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: {
-        'Content-Type': 'application/json',
-        // Bearer ヘッダーを明示することで OAuth 自動検出フローへの誤ったフォールバックを防ぐ
-        'WWW-Authenticate': 'Bearer realm="courage-invoice"',
-      },
-    });
-  }
   // ステートレスモード: リクエストごとに新しいトランスポートとサーバーを作成
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless
