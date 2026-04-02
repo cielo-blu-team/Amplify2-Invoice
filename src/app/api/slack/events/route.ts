@@ -32,12 +32,14 @@ export async function POST(request: Request) {
   const text: string = (event.text ?? '').replace(/<@[^>]+>\s*/g, '').trim();
   const channel: string = event.channel;
   const userId: string = event.user ?? 'unknown';
+  // スレッド返信用: スレッド内のメッセージならそのスレッドへ、そうでなければ元メッセージへ
+  const threadTs: string = event.thread_ts ?? event.ts;
 
-  // DM はユーザーごと、チャンネルメンションはチャンネルごとに会話を管理
-  const conversationKey = event.channel_type === 'im' ? `dm:${userId}` : `ch:${channel}`;
+  // DM はユーザーごと、チャンネルメンションはスレッドごとに会話を管理
+  const conversationKey = event.channel_type === 'im' ? `dm:${userId}` : `thread:${threadTs}`;
 
   // コマンドを非同期で処理（Slack の 3秒タイムアウトに引っかからないよう即レスポンス）
-  handleConversation(text, channel, conversationKey).catch((e) =>
+  handleConversation(text, channel, threadTs, conversationKey).catch((e) =>
     console.error('[SlackBot] handleConversation error:', e),
   );
 
@@ -47,27 +49,28 @@ export async function POST(request: Request) {
 async function handleConversation(
   text: string,
   channel: string,
+  threadTs: string,
   conversationKey: string,
 ): Promise<void> {
   if (!SLACK_BOT_TOKEN) {
-    await postSlackMessage(channel, 'SLACK_BOT_TOKEN が設定されていないため返信できません。');
+    await postSlackMessage(channel, threadTs, 'SLACK_BOT_TOKEN が設定されていないため返信できません。');
     return;
   }
 
   try {
     const reply = await handleSlackMessage(conversationKey, text);
-    await postSlackMessage(channel, reply);
+    await postSlackMessage(channel, threadTs, reply);
   } catch (e) {
     console.error('[SlackBot] AI error:', e);
-    await postSlackMessage(channel, 'エラーが発生しました。しばらく待ってから再試行してください。');
+    await postSlackMessage(channel, threadTs, 'エラーが発生しました。しばらく待ってから再試行してください。');
   }
 }
 
-async function postSlackMessage(channel: string, text: string): Promise<void> {
+async function postSlackMessage(channel: string, threadTs: string, text: string): Promise<void> {
   if (!SLACK_BOT_TOKEN) return;
   await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
-    body: JSON.stringify({ channel, text }),
+    body: JSON.stringify({ channel, text, thread_ts: threadTs }),
   });
 }
