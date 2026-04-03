@@ -35,6 +35,17 @@ function saveConversation(key: string, messages: Anthropic.MessageParam[]) {
   conversations.set(key, { messages, lastActivity: Date.now() });
 }
 
+/** スレッドキーに対して会話履歴が存在するか確認（TTL チェック込み） */
+export function hasConversation(key: string): boolean {
+  const entry = conversations.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry.lastActivity > CONVERSATION_TTL_MS) {
+    conversations.delete(key);
+    return false;
+  }
+  return true;
+}
+
 // ────────────────────────────────────────────────────────────────
 // Claude ツール定義
 // ────────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { handleSlackMessage } from '@/lib/slack-ai-handler';
+import { handleSlackMessage, hasConversation } from '@/lib/slack-ai-handler';
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN ?? '';
 
@@ -18,13 +18,7 @@ export async function POST(request: Request) {
 
   const event = body.event;
 
-  // メンション or DM のみ処理（bot_message は無視して無限ループを防ぐ）
-  if (
-    event.type !== 'app_mention' &&
-    !(event.type === 'message' && event.channel_type === 'im')
-  ) {
-    return NextResponse.json({ ok: true });
-  }
+  // bot_message は無視（無限ループ防止）
   if (event.subtype === 'bot_message' || event.bot_id) {
     return NextResponse.json({ ok: true });
   }
@@ -34,9 +28,18 @@ export async function POST(request: Request) {
   const userId: string = event.user ?? 'unknown';
   // スレッド返信用: スレッド内のメッセージならそのスレッドへ、そうでなければ元メッセージへ
   const threadTs: string = event.thread_ts ?? event.ts;
+  const isDm = event.channel_type === 'im';
+  const conversationKey = isDm ? `dm:${userId}` : `thread:${threadTs}`;
 
-  // DM はユーザーごと、チャンネルメンションはスレッドごとに会話を管理
-  const conversationKey = event.channel_type === 'im' ? `dm:${userId}` : `thread:${threadTs}`;
+  // 処理対象の判定:
+  // 1. メンション（app_mention）
+  // 2. DM
+  // 3. ボットが参加済みのスレッド内メッセージ（メンションなし可）
+  const isMention = event.type === 'app_mention';
+  const isThreadReply = event.type === 'message' && !!event.thread_ts && hasConversation(conversationKey);
+  if (!isMention && !isDm && !isThreadReply) {
+    return NextResponse.json({ ok: true });
+  }
 
   // コマンドを非同期で処理（Slack の 3秒タイムアウトに引っかからないよう即レスポンス）
   handleConversation(text, channel, threadTs, conversationKey).catch((e) =>
