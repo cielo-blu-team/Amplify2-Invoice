@@ -63,7 +63,7 @@ interface Props {
 }
 
 export default function UsersClient({ users: initialUsers, invitations: initialInvitations }: Props) {
-  const [users] = useState(initialUsers);
+  const [users, setUsers] = useState(initialUsers);
   const [invitations, setInvitations] = useState(initialInvitations);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -115,6 +115,7 @@ export default function UsersClient({ users: initialUsers, invitations: initialI
   const handleRoleChange = async (userId: string, newRole: Role) => {
     try {
       await updateUserRoleAction(userId, newRole);
+      setUsers((prev) => prev.map((u) => u.userId === userId ? { ...u, role: newRole } : u));
       showSuccess('ロールを更新しました');
     } catch (e) {
       showError(e instanceof Error ? e.message : 'ロールの更新に失敗しました');
@@ -210,7 +211,7 @@ export default function UsersClient({ users: initialUsers, invitations: initialI
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <Select
-                      defaultValue={user.role}
+                      value={user.role}
                       onValueChange={(v) => handleRoleChange(user.userId, v as Role)}
                     >
                       <SelectTrigger className="w-28 h-7 text-sm">
