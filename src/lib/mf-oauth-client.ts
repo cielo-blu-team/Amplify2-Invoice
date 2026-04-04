@@ -10,8 +10,8 @@
  *   https://accounting.moneyforward.com/api/v1/journals  等
  */
 
-// Cieloblu アプリは api.biz.moneyforward.com プラットフォームで登録
-const MF_AUTH_BASE = 'https://api.biz.moneyforward.com/oauth';
+// MF Biz API 認証エンドポイント（/authorize / /token がパス）
+const MF_AUTH_BASE = 'https://api.biz.moneyforward.com';
 const MF_ACCOUNTING_BASE = 'https://accounting.moneyforward.com/api/v1';
 
 const REDIRECT_URI =
