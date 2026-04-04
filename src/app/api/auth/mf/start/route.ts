@@ -22,11 +22,12 @@ export async function GET() {
   const authUrl = buildAuthorizationUrl(state);
 
   const res = NextResponse.json({ url: authUrl });
+  // sameSite: 'none' + secure: true で MF からのリダイレクト時にも Cookie が送信される
   res.cookies.set('mf_oauth_state', state, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     maxAge: 600,
-    sameSite: 'lax',
+    sameSite: 'none',
     path: '/',
   });
   return res;

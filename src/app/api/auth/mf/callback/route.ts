@@ -27,12 +27,18 @@ export async function GET(request: Request) {
 
   // state検証（CSRF対策）
   const cookieHeader = request.headers.get('cookie') ?? '';
+  console.log('[MF callback] cookie header:', cookieHeader);
+  console.log('[MF callback] state from URL:', state);
+
   const savedState = cookieHeader
     .split(';')
     .find((c) => c.trim().startsWith('mf_oauth_state='))
     ?.split('=')[1];
 
+  console.log('[MF callback] savedState from cookie:', savedState);
+
   if (!savedState || savedState !== state) {
+    console.error('[MF callback] state mismatch - savedState:', savedState, 'urlState:', state);
     return NextResponse.json({ error: 'stateが一致しません（CSRF検出）' }, { status: 400 });
   }
 
