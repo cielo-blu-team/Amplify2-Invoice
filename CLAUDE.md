@@ -43,6 +43,9 @@ Cloud Run サービス URL:
 | `FIREBASE_API_KEY` | secret | `firebase-api-key` |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | secret | `firebase-api-key` |
 | `MONEYFORWARD_API_KEY` | secret | `moneyforward-api-key` |
+| `MF_OAUTH_CLIENT_ID` | secret | `mf-oauth-client-id` |
+| `MF_OAUTH_CLIENT_SECRET` | secret | `mf-oauth-client-secret` |
+| `MF_OAUTH_REFRESH_TOKEN` | secret | `mf-oauth-refresh-token` |
 | `SLACK_BOT_TOKEN` | secret | `slack-bot-token` |
 | `SLACK_WEBHOOK_URL` | secret | `slack-webhook-url` |
 | `GCP_PROJECT_ID` | literal | `courage-invoice-prod` |
