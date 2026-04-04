@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Bell, Users } from 'lucide-react';
+import { Building2, Bell, Users, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
   { href: '/settings',               label: '自社情報',   Icon: Building2 },
   { href: '/settings/notifications', label: '通知設定',   Icon: Bell },
   { href: '/settings/users',         label: 'ユーザー管理', Icon: Users },
+  { href: '/settings/integrations',  label: '外部連携',   Icon: Link2 },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
