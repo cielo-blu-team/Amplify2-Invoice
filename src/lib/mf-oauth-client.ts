@@ -138,6 +138,24 @@ export async function refreshAccessToken(refreshToken: string): Promise<MFTokens
 let cachedAccessToken: string | null = null;
 let tokenExpiresAt = 0;
 
+/** Secret Manager の mf-oauth-refresh-token を新しいトークンで上書きする */
+async function rotateRefreshToken(newRefreshToken: string): Promise<void> {
+  const projectId = process.env.GCP_PROJECT_ID ?? 'courage-invoice-prod';
+  try {
+    const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
+    const client = new SecretManagerServiceClient();
+    const parent = `projects/${projectId}/secrets/mf-oauth-refresh-token`;
+    await client.addSecretVersion({
+      parent,
+      payload: { data: Buffer.from(newRefreshToken) },
+    });
+    console.log('[MF OAuth] refresh_token をSecret Managerに自動更新しました');
+  } catch (e) {
+    // ローテーション失敗はログのみ（アクセストークン自体は使用可能）
+    console.error('[MF OAuth] refresh_token の自動更新に失敗しました:', e);
+  }
+}
+
 export async function getAccessToken(): Promise<string> {
   // キャッシュが有効なら使用（期限5分前に更新）
   if (cachedAccessToken && Date.now() < tokenExpiresAt - 5 * 60 * 1000) {
@@ -155,6 +173,12 @@ export async function getAccessToken(): Promise<string> {
   const tokens = await refreshAccessToken(refreshToken);
   cachedAccessToken = tokens.access_token;
   tokenExpiresAt = Date.now() + tokens.expires_in * 1000;
+
+  // トークンローテーション: MF は refresh_token を使うたびに新しいものを発行する
+  if (tokens.refresh_token && tokens.refresh_token !== refreshToken) {
+    void rotateRefreshToken(tokens.refresh_token);
+  }
+
   return cachedAccessToken;
 }
 
