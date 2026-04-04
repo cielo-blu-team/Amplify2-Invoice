@@ -70,6 +70,7 @@ const claudeTools: Anthropic.Tool[] = [
             properties: {
               description: { type: 'string' },
               quantity: { type: 'number' },
+              unit: { type: 'string', description: '単位（式・個・時間・人月など。省略時は「式」）' },
               unitPrice: { type: 'number' },
               taxRate: { type: 'number', enum: [10, 8, 0] },
             },
@@ -99,6 +100,7 @@ const claudeTools: Anthropic.Tool[] = [
             properties: {
               description: { type: 'string' },
               quantity: { type: 'number' },
+              unit: { type: 'string', description: '単位（式・個・時間・人月など。省略時は「式」）' },
               unitPrice: { type: 'number' },
               taxRate: { type: 'number', enum: [10, 8, 0] },
             },

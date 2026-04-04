@@ -25,6 +25,7 @@ function getMcpRole(): Role {
 const lineItemSchema = z.object({
   description: z.string(),
   quantity: z.number(),
+  unit: z.string().optional().describe('単位（式・個・時間・人月など。省略時は「式」）'),
   unitPrice: z.number(),
   taxRate: z.union([z.literal(10), z.literal(8), z.literal(0)]),
 });
@@ -145,11 +146,11 @@ async function resolveClientId(clientName: string, _createdBy: string): Promise<
   return { clientId: newClient.clientId, clientName: newClient.clientName };
 }
 
-function toLineItems(lineItems: Array<{ description: string; quantity: number; unitPrice: number; taxRate: number }>): LineItemInput[] {
+function toLineItems(lineItems: Array<{ description: string; quantity: number; unit?: string; unitPrice: number; taxRate: number }>): LineItemInput[] {
   return lineItems.map((item, i) => ({
     itemName: item.description,
     quantity: item.quantity,
-    unit: '式',
+    unit: item.unit ?? '式',
     unitPrice: item.unitPrice,
     taxRate: item.taxRate as 0 | 8 | 10,
     sortOrder: i + 1,
