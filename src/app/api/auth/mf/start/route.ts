@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHmac } from 'crypto';
 import { buildAuthorizationUrl } from '@/lib/mf-oauth-client';
 import { authorize } from '@/lib/auth';
 import { getCurrentUserRole } from '@/lib/auth-server';
@@ -10,6 +9,9 @@ import { getCurrentUserRole } from '@/lib/auth-server';
  * 管理者のみ実行可能（初回のみ）
  * GET /api/auth/mf/start
  * → { url: string } を返すので、クライアント側でリダイレクト
+ *
+ * state は HMAC 署名付きトークン形式: <random>.<timestamp>.<hmac>
+ * Cookie 不要でコールバック側で署名検証できる
  */
 export async function GET() {
   try {
@@ -19,18 +21,13 @@ export async function GET() {
     return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
   }
 
-  const state = randomBytes(16).toString('hex');
+  const random = randomBytes(8).toString('hex');
+  const timestamp = Date.now().toString();
+  const payload = `${random}.${timestamp}`;
+  const secret = process.env.MF_OAUTH_CLIENT_SECRET ?? 'dev-secret';
+  const sig = createHmac('sha256', secret).update(payload).digest('hex');
+  const state = `${payload}.${sig}`;
+
   const authUrl = buildAuthorizationUrl(state);
-
-  // next/headers の cookies() で確実に Set-Cookie ヘッダーを送出
-  const cookieStore = await cookies();
-  cookieStore.set('mf_oauth_state', state, {
-    httpOnly: true,
-    secure: true,
-    maxAge: 600,
-    sameSite: 'none',
-    path: '/',
-  });
-
   return NextResponse.json({ url: authUrl });
 }
