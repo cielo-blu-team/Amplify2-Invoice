@@ -8,6 +8,7 @@ import { getCurrentUserRole } from '@/lib/auth-server';
  * MF会計OAuth認可フロー開始
  * 管理者のみ実行可能（初回のみ）
  * GET /api/auth/mf/start
+ * → { url: string } を返すので、クライアント側でリダイレクト
  */
 export async function GET() {
   try {
@@ -20,12 +21,11 @@ export async function GET() {
   const state = randomBytes(16).toString('hex');
   const authUrl = buildAuthorizationUrl(state);
 
-  // stateをcookieに保存してCSRF対策
-  const res = NextResponse.redirect(authUrl);
+  const res = NextResponse.json({ url: authUrl });
   res.cookies.set('mf_oauth_state', state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 600, // 10分
+    maxAge: 600,
     sameSite: 'lax',
     path: '/',
   });
