@@ -79,9 +79,11 @@ export function buildAuthorizationUrl(state: string): string {
 export async function exchangeCodeForTokens(code: string): Promise<MFTokens> {
   const { clientId, clientSecret } = getClientCredentials();
 
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  // CLIENT_SECRET_POST: client_id / client_secret をボディに含める
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
+    client_id: clientId,
+    client_secret: clientSecret,
     code,
     redirect_uri: REDIRECT_URI,
   });
@@ -89,7 +91,6 @@ export async function exchangeCodeForTokens(code: string): Promise<MFTokens> {
   const res = await fetch(`${MF_AUTH_BASE}/token`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: body.toString(),
@@ -108,16 +109,17 @@ export async function exchangeCodeForTokens(code: string): Promise<MFTokens> {
 export async function refreshAccessToken(refreshToken: string): Promise<MFTokens> {
   const { clientId, clientSecret } = getClientCredentials();
 
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  // CLIENT_SECRET_POST: client_id / client_secret をボディに含める
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
+    client_id: clientId,
+    client_secret: clientSecret,
     refresh_token: refreshToken,
   });
 
-  const res = await fetch(`${MF_AUTH_BASE}/token`, {  // accounting.moneyforward.com/oauth/token
+  const res = await fetch(`${MF_AUTH_BASE}/token`, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: body.toString(),
