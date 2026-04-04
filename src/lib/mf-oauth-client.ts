@@ -10,8 +10,8 @@
  *   https://accounting.moneyforward.com/api/v1/journals  等
  */
 
-// 会計APIは独自のOAuthエンドポイントを使用
-const MF_AUTH_BASE = 'https://accounting.moneyforward.com/oauth';
+// Cieloblu アプリは api.biz.moneyforward.com プラットフォームで登録
+const MF_AUTH_BASE = 'https://api.biz.moneyforward.com/oauth';
 const MF_ACCOUNTING_BASE = 'https://accounting.moneyforward.com/api/v1';
 
 const REDIRECT_URI =
