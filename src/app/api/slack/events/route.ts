@@ -81,7 +81,17 @@ async function postSlackMessage(channel: string, threadTs: string, text: string)
   await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
-    body: JSON.stringify({ channel, text, thread_ts: threadTs }),
+    body: JSON.stringify({
+      channel,
+      thread_ts: threadTs,
+      text,
+      blocks: [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text },
+        },
+      ],
+    }),
   });
 }
 
