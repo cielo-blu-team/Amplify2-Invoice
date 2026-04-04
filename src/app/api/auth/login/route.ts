@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { verifyIdToken } from '@/lib/firebase-admin-auth';
+import { verifyIdToken, createSessionCookie } from '@/lib/firebase-admin-auth';
 import { provisionUser } from '@/lib/provision-user';
+
+// 7日間（Firebase Session Cookie の最大値は14日）
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const FIREBASE_API_KEY = (process.env.FIREBASE_API_KEY ?? '').trim();
 const FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
@@ -90,12 +93,20 @@ export async function POST(request: Request) {
     );
   }
 
+  let sessionCookie: string;
+  try {
+    sessionCookie = await createSessionCookie(idToken, SESSION_DURATION_MS);
+  } catch (e) {
+    console.error('[login] createSessionCookie failed:', e);
+    return NextResponse.json({ error: 'セッションの作成に失敗しました' }, { status: 500 });
+  }
+
   const res = NextResponse.json({ success: true, redirectUrl: '/' });
-  res.cookies.set('firebase-id-token', idToken, {
+  res.cookies.set('firebase-id-token', sessionCookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: parseInt(expiresIn, 10),
+    maxAge: SESSION_DURATION_MS / 1000, // Cookie の maxAge は秒単位
     sameSite: 'lax',
   });
   return res;

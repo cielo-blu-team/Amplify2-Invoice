@@ -8,6 +8,7 @@ import * as tools from '@/lib/mcp-tools';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const SYSTEM_USER_ID = process.env.MCP_SYSTEM_USER_ID ?? 'mcp-slack-bot';
+const APP_URL = process.env.APP_BASE_URL ?? 'https://courage-invoice-649548596161.asia-northeast1.run.app';
 
 // ────────────────────────────────────────────────────────────────
 // 会話履歴（チャンネルID または userID をキーに保持）
@@ -173,6 +174,17 @@ const claudeTools: Anthropic.Tool[] = [
       },
     },
   },
+  {
+    name: 'generate_pdf',
+    description: '帳票IDを指定してPDFを生成する。生成後のダウンロードURLを返す。',
+    input_schema: {
+      type: 'object',
+      properties: {
+        documentId: { type: 'string', description: '帳票ID' },
+      },
+      required: ['documentId'],
+    },
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────
@@ -185,15 +197,29 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     switch (name) {
       case 'create_estimate':
         result = await tools.createEstimate(input as Parameters<typeof tools.createEstimate>[0], SYSTEM_USER_ID);
+        // 作成結果にURLを付与
+        if (result && typeof result === 'object' && 'documentId' in result) {
+          const doc = result as { documentId: string; documentType?: string };
+          (result as Record<string, unknown>).url = `${APP_URL}/estimates/${doc.documentId}`;
+        }
         break;
       case 'create_invoice':
         result = await tools.createInvoice(input as Parameters<typeof tools.createInvoice>[0], SYSTEM_USER_ID);
+        if (result && typeof result === 'object' && 'documentId' in result) {
+          const doc = result as { documentId: string; documentType?: string };
+          (result as Record<string, unknown>).url = `${APP_URL}/invoices/${doc.documentId}`;
+        }
         break;
       case 'list_documents':
         result = await tools.listDocuments(input as Parameters<typeof tools.listDocuments>[0]);
         break;
       case 'get_document':
         result = await tools.getDocument(input as Parameters<typeof tools.getDocument>[0]);
+        if (result && typeof result === 'object' && 'documentId' in result) {
+          const doc = result as { documentId: string; documentType?: string };
+          const typePath = doc.documentType === 'estimate' ? 'estimates' : 'invoices';
+          (result as Record<string, unknown>).url = `${APP_URL}/${typePath}/${doc.documentId}`;
+        }
         break;
       case 'approve_document':
         result = await tools.approveDoc(input as Parameters<typeof tools.approveDoc>[0], SYSTEM_USER_ID);
@@ -203,6 +229,9 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
         break;
       case 'list_clients':
         result = await tools.listClients(input as Parameters<typeof tools.listClients>[0]);
+        break;
+      case 'generate_pdf':
+        result = await tools.generatePdfTool(input as Parameters<typeof tools.generatePdfTool>[0]);
         break;
       default:
         return `未知のツール: ${name}`;
@@ -214,28 +243,16 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
 }
 
 // ────────────────────────────────────────────────────────────────
-// メイン: Slack メッセージを受けて Claude と対話
+// システムプロンプト
 // ────────────────────────────────────────────────────────────────
 
-export async function handleSlackMessage(
-  conversationKey: string,
-  userMessage: string,
-): Promise<string> {
+function buildSystemPrompt(): string {
   const today = new Date().toISOString().slice(0, 10);
-  const history = getConversation(conversationKey);
-
-  const messages: Anthropic.MessageParam[] = [
-    ...history,
-    { role: 'user', content: userMessage },
-  ];
-
-  let response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
-    system: `あなたは帳票管理システム「Courage Invoice」のアシスタントです。
+  return `あなたは帳票管理システム「Courage Invoice」のアシスタントです。
 ユーザーが見積書・請求書の作成や確認・承認をSlack上で自然に行えるようサポートします。
 
 今日の日付: ${today}
+アプリURL: ${APP_URL}
 
 ## 振る舞い
 - 日本語で丁寧かつ簡潔に応答する
@@ -243,6 +260,19 @@ export async function handleSlackMessage(
 - 情報が揃ったらすぐにツールを呼び出す
 - ツール実行結果はユーザーに分かりやすく伝える
 - 作成した帳票番号・金額・宛先を必ず明示する
+- 帳票を作成・取得した場合は、結果に含まれるURLをリンクとして表示する
+- PDF生成が完了したらダウンロードURLを表示する
+
+## 書式（重要）
+あなたの出力はSlackに投稿されます。標準Markdownではなく、Slackのmrkdwn記法を使ってください。
+- 太字: *テキスト*（アスタリスク1つ。**ではなく*を使う）
+- イタリック: _テキスト_
+- 取り消し線: ~テキスト~
+- コード: \`テキスト\`
+- リンク: <URL|表示テキスト>
+- リスト: 「• 」または「- 」で始める
+- 見出しの「#」「##」は使わない（Slackでは機能しない）
+- 「**」は絶対に使わないこと
 
 ## 明細の扱い
 - 「50万円」「50,000円」などの金額表現を適切に解釈する
@@ -255,7 +285,44 @@ export async function handleSlackMessage(
 - 帳票一覧の表示
 - 承認・否認
 - ステータス変更（送付済みにするなど）
-- 取引先検索`,
+- 取引先検索
+- PDF生成`;
+}
+
+// ────────────────────────────────────────────────────────────────
+// Markdown → Slack mrkdwn 変換
+// ────────────────────────────────────────────────────────────────
+
+function toSlackMrkdwn(text: string): string {
+  return text
+    // **太字** → *太字*（Slack の太字はアスタリスク1つ）
+    .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    // ### 見出し → *見出し*（太字に変換）
+    .replace(/^#{1,3}\s+(.+)$/gm, '*$1*')
+    // [テキスト](URL) → <URL|テキスト>
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<$2|$1>');
+}
+
+// ────────────────────────────────────────────────────────────────
+// メイン: Slack メッセージを受けて Claude と対話
+// ────────────────────────────────────────────────────────────────
+
+export async function handleSlackMessage(
+  conversationKey: string,
+  userMessage: string,
+): Promise<string> {
+  const history = getConversation(conversationKey);
+  const systemPrompt = buildSystemPrompt();
+
+  const messages: Anthropic.MessageParam[] = [
+    ...history,
+    { role: 'user', content: userMessage },
+  ];
+
+  let response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: systemPrompt,
     tools: claudeTools,
     messages,
   });
@@ -285,40 +352,18 @@ export async function handleSlackMessage(
     response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
-      system: `あなたは帳票管理システム「Courage Invoice」のアシスタントです。
-ユーザーが見積書・請求書の作成や確認・承認をSlack上で自然に行えるようサポートします。
-
-今日の日付: ${today}
-
-## 振る舞い
-- 日本語で丁寧かつ簡潔に応答する
-- 帳票作成に必要な情報が不足している場合は、一度に1〜2項目ずつ質問する
-- 情報が揃ったらすぐにツールを呼び出す
-- ツール実行結果はユーザーに分かりやすく伝える
-- 作成した帳票番号・金額・宛先を必ず明示する
-
-## 明細の扱い
-- 「50万円」「50,000円」などの金額表現を適切に解釈する
-- 数量・単価が曖昧な場合は確認する
-- 消費税率は特に指定がなければ10%を使用する
-
-## 対応できること
-- 見積書の作成・確認
-- 請求書の作成・確認
-- 帳票一覧の表示
-- 承認・否認
-- ステータス変更（送付済みにするなど）
-- 取引先検索`,
+      system: systemPrompt,
       tools: claudeTools,
       messages,
     });
   }
 
-  // 最終テキストを取り出す
-  const replyText = response.content
+  // 最終テキストを取り出し、Slack mrkdwn に変換
+  const rawText = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
     .join('\n');
+  const replyText = toSlackMrkdwn(rawText);
 
   // 会話履歴を保存（最大20ターン保持）
   messages.push({ role: 'assistant', content: response.content });

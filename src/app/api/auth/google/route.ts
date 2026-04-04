@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { verifyIdToken } from '@/lib/firebase-admin-auth';
+import { verifyIdToken, createSessionCookie } from '@/lib/firebase-admin-auth';
 import { provisionUser } from '@/lib/provision-user';
+
+// 7日間
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function POST(request: Request) {
   let idToken: string;
@@ -37,15 +40,20 @@ export async function POST(request: Request) {
     );
   }
 
-  // Firebase ID token の有効期限は1時間
-  const expiresIn = 3600;
+  let sessionCookie: string;
+  try {
+    sessionCookie = await createSessionCookie(idToken, SESSION_DURATION_MS);
+  } catch (e) {
+    console.error('[google] createSessionCookie failed:', e);
+    return NextResponse.json({ error: 'セッションの作成に失敗しました' }, { status: 500 });
+  }
 
   const res = NextResponse.json({ success: true });
-  res.cookies.set('firebase-id-token', idToken, {
+  res.cookies.set('firebase-id-token', sessionCookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: expiresIn,
+    maxAge: SESSION_DURATION_MS / 1000,
     sameSite: 'lax',
   });
   return res;

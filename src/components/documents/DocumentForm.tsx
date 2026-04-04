@@ -26,6 +26,7 @@ interface DocumentFormProps {
   initialData?: Partial<DocumentFormData>;
   onSubmit: (data: DocumentFormData) => Promise<void>;
   loading?: boolean;
+  title?: string;
 }
 
 const DEFAULT_ITEM: LineItemFormData = {
@@ -64,6 +65,7 @@ export default function DocumentForm({
   initialData,
   onSubmit,
   loading,
+  title,
 }: DocumentFormProps) {
   const [clientId, setClientId] = useState<string | null>(initialData?.clientId ?? null);
   const [clientName, setClientName] = useState(initialData?.clientName ?? '');
@@ -131,7 +133,7 @@ export default function DocumentForm({
   return (
     <div className="flex flex-col gap-6">
       <h4 className="text-base font-semibold" style={{ color: '#0f0f1a' }}>
-        {documentType === 'estimate' ? '見積書' : '請求書'}作成
+        {title ?? `${documentType === 'estimate' ? '見積書' : '請求書'}作成`}
       </h4>
 
       {/* 取引先選択 */}

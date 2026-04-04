@@ -1,5 +1,8 @@
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
-import { getDocument } from '@/queries/document';
+import { getDocumentWithLineItems } from '@/queries/document';
+import { getCompanySettings } from '@/queries/settings';
 import { getCurrentUserId, getCurrentUserDisplayName } from '@/lib/auth-server';
 import InvoiceDetailClient from './InvoiceDetailClient';
 
@@ -9,11 +12,20 @@ interface Props {
 
 export default async function InvoiceDetailPage({ params }: Props) {
   const { documentId } = await params;
-  const [doc, userId, userName] = await Promise.all([
-    getDocument(documentId).catch(() => null),
+  const [result, settings, userId, userName] = await Promise.all([
+    getDocumentWithLineItems(documentId).catch(() => null),
+    getCompanySettings().catch(() => null),
     getCurrentUserId(),
     getCurrentUserDisplayName(),
   ]);
-  if (!doc) notFound();
-  return <InvoiceDetailClient document={doc} userId={userId} userName={userName} />;
+  if (!result) notFound();
+  return (
+    <InvoiceDetailClient
+      document={result.header}
+      lineItems={result.lineItems}
+      settings={settings}
+      userId={userId}
+      userName={userName}
+    />
+  );
 }

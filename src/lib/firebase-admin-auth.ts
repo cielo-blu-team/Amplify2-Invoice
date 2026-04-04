@@ -100,3 +100,22 @@ export async function updateUserClaims(
 export async function verifyIdToken(idToken: string) {
   return getAdminAuth().verifyIdToken(idToken);
 }
+
+/**
+ * Firebase Session Cookie 発行
+ * ID トークン（有効期限1時間）をサーバー側セッション Cookie に変換する。
+ * セッション Cookie は最大14日間有効で、revoke も可能。
+ */
+export async function createSessionCookie(
+  idToken: string,
+  expiresInMs: number,
+): Promise<string> {
+  return getAdminAuth().createSessionCookie(idToken, { expiresIn: expiresInMs });
+}
+
+/**
+ * Session Cookie 検証
+ */
+export async function verifySessionCookie(sessionCookie: string, checkRevoked = false) {
+  return getAdminAuth().verifySessionCookie(sessionCookie, checkRevoked);
+}

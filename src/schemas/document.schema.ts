@@ -40,6 +40,8 @@ export const documentCreateSchema = z
 // 帳票更新スキーマ
 export const documentUpdateSchema = z.object({
   documentId: z.string().min(1),
+  clientId: z.string().min(1).optional(),
+  clientName: z.string().min(1).optional(),
   subject: z.string().min(1).max(200).optional(),
   issueDate: dateStringSchema.optional(),
   validUntil: dateStringSchema.optional(),

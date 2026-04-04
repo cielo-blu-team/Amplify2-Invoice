@@ -246,6 +246,9 @@ export async function generatePdf(args: z.infer<typeof generatePdfSchema>) {
   return { pdfUrl: result.data!.pdfUrl };
 }
 
+// Slack AI ハンドラから呼び出す際のエイリアス
+export const generatePdfTool = generatePdf;
+
 export async function updateStatus(args: z.infer<typeof updateStatusSchema>, _userId: string) {
   const { documentId, newStatus } = args;
   // ステータスごとに必要な権限を確認

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Copy, RefreshCw, XCircle, Send } from 'lucide-react';
+import { ArrowLeft, FileText, Copy, RefreshCw, XCircle, Send, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import StatusBadge from '@/components/common/StatusBadge';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import DocumentPreview from '@/components/documents/DocumentPreview';
 import { showSuccess, showError } from '@/lib/toast';
 import {
   cancelDocument,
@@ -28,10 +29,12 @@ import {
 import { requestApproval } from '@/actions/approval';
 import { generatePdfAction } from '@/actions/pdf';
 import { cn } from '@/lib/utils';
-import type { DocumentHeader } from '@/types';
+import type { CompanySettings, DocumentHeader, LineItem } from '@/types';
 
 interface Props {
   document: DocumentHeader;
+  lineItems: LineItem[];
+  settings: CompanySettings | null;
   userId: string;
   userName: string;
 }
@@ -48,7 +51,7 @@ function formatAmount(n: number): string {
   return n.toLocaleString('ja-JP') + ' 円';
 }
 
-export default function EstimateDetailClient({ document: doc, userId, userName }: Props) {
+export default function EstimateDetailClient({ document: doc, lineItems, settings, userId, userName }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -64,6 +67,7 @@ export default function EstimateDetailClient({ document: doc, userId, userName }
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertDueDate, setConvertDueDate] = useState('');
 
+  const canEdit = doc.status === 'draft';
   const canRequestApproval = doc.status === 'draft';
   const canSend = doc.status === 'confirmed';
   const canCancel = doc.status === 'draft' || doc.status === 'confirmed';
@@ -259,6 +263,14 @@ export default function EstimateDetailClient({ document: doc, userId, userName }
         <Card className="shadow-sm">
           <CardContent className="pt-6">
             <div className="flex flex-wrap items-center gap-2">
+              {canEdit && (
+                <Link href={`/estimates/${doc.documentId}/edit`}>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Pencil className="h-4 w-4" />
+                    編集
+                  </Button>
+                </Link>
+              )}
               {canRequestApproval && (
                 <Button onClick={handleRequestApproval} disabled={loading}>
                   承認依頼
@@ -333,6 +345,18 @@ export default function EstimateDetailClient({ document: doc, userId, userName }
             </CardContent>
           </Card>
         )}
+
+        {/* Document preview */}
+        <Card className="shadow-sm overflow-hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">帳票プレビュー</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 bg-gray-50">
+            <div className="p-6">
+              <DocumentPreview document={doc} lineItems={lineItems} settings={settings} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Cancel modal */}

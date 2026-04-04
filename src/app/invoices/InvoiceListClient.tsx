@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Search, FileText, ChevronRight } from 'lucide-react';
+import { Plus, Search, FileText, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -215,7 +215,24 @@ export default function InvoiceListClient({ initialData }: Props) {
                       {formatAmount(doc.totalAmount)}
                     </TableCell>
                     <TableCell>
-                      <ChevronRight className="h-4 w-4 ml-auto" style={{ color: 'rgba(0,0,0,0.25)' }} />
+                      <div className="flex items-center justify-end gap-1">
+                        {doc.status === 'draft' && (
+                          <Link
+                            href={`/invoices/${doc.documentId}/edit`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="編集"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                        )}
+                        <ChevronRight className="h-4 w-4" style={{ color: 'rgba(0,0,0,0.25)' }} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

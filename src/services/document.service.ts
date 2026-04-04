@@ -145,6 +145,8 @@ export async function createDocument(input: {
 export async function updateDocument(
   documentId: string,
   updates: {
+    clientId?: string;
+    clientName?: string;
     subject?: string;
     issueDate?: string;
     validUntil?: string;
@@ -161,6 +163,8 @@ export async function updateDocument(
 
   const metaUpdates: Partial<DocumentHeader> = {};
 
+  if (updates.clientId !== undefined) metaUpdates.clientId = updates.clientId;
+  if (updates.clientName !== undefined) metaUpdates.clientName = updates.clientName;
   if (updates.subject !== undefined) metaUpdates.subject = updates.subject;
   if (updates.issueDate !== undefined) metaUpdates.issueDate = updates.issueDate;
   if (updates.validUntil !== undefined) metaUpdates.validUntil = updates.validUntil;

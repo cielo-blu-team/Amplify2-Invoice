@@ -67,6 +67,8 @@ export async function createDocument(input: {
 export async function updateDocument(
   documentId: string,
   input: {
+    clientId?: string;
+    clientName?: string;
     subject?: string;
     issueDate?: string;
     validUntil?: string;
