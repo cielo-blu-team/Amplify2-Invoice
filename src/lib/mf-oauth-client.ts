@@ -10,7 +10,8 @@
  *   https://accounting.moneyforward.com/api/v1/journals  等
  */
 
-const MF_AUTH_BASE = 'https://api.biz.moneyforward.com';
+// 会計APIは独自のOAuthエンドポイントを使用
+const MF_AUTH_BASE = 'https://accounting.moneyforward.com/oauth';
 const MF_ACCOUNTING_BASE = 'https://accounting.moneyforward.com/api/v1';
 
 const REDIRECT_URI =
@@ -66,7 +67,8 @@ export function buildAuthorizationUrl(state: string): string {
     response_type: 'code',
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
-    scope: 'read',  // 会計APIの読み取りスコープ
+    // 会計APIのスコープ（読み取り権限）
+    scope: 'mfc/accounting/journal.read mfc/accounting/account_item.read mfc/accounting/walletable.read',
     state,
   });
   return `${MF_AUTH_BASE}/authorize?${params.toString()}`;
@@ -112,7 +114,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<MFTokens
     refresh_token: refreshToken,
   });
 
-  const res = await fetch(`${MF_AUTH_BASE}/token`, {
+  const res = await fetch(`${MF_AUTH_BASE}/token`, {  // accounting.moneyforward.com/oauth/token
     method: 'POST',
     headers: {
       Authorization: `Basic ${basicAuth}`,
