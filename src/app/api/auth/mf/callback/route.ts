@@ -64,6 +64,10 @@ export async function GET(request: Request) {
   console.log('[MF callback] 手動保存コマンド:');
   console.log(`echo -n "${tokens.refresh_token}" | gcloud secrets versions add mf-oauth-refresh-token --project=${PROJECT_ID} --data-file=-`);
 
-  const res = NextResponse.redirect(new URL('/settings?mf_connected=1', request.url));
-  return res;
+  // Cloud Run では request.url が 0.0.0.0 になるため x-forwarded-host で補正
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? '';
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  const baseUrl = host ? `${proto}://${host}` : 'https://courage-invoice-649548596161.asia-northeast1.run.app';
+
+  return NextResponse.redirect(`${baseUrl}/settings?mf_connected=1`);
 }
