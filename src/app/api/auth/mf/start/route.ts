@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { randomBytes } from 'crypto';
 import { buildAuthorizationUrl } from '@/lib/mf-oauth-client';
 import { authorize } from '@/lib/auth';
@@ -21,14 +22,15 @@ export async function GET() {
   const state = randomBytes(16).toString('hex');
   const authUrl = buildAuthorizationUrl(state);
 
-  const res = NextResponse.json({ url: authUrl });
-  // sameSite: 'none' + secure: true で MF からのリダイレクト時にも Cookie が送信される
-  res.cookies.set('mf_oauth_state', state, {
+  // next/headers の cookies() で確実に Set-Cookie ヘッダーを送出
+  const cookieStore = await cookies();
+  cookieStore.set('mf_oauth_state', state, {
     httpOnly: true,
     secure: true,
     maxAge: 600,
     sameSite: 'none',
     path: '/',
   });
-  return res;
+
+  return NextResponse.json({ url: authUrl });
 }
