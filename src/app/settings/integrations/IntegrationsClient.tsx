@@ -1,28 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, CircleDashed, ExternalLink, ShieldAlert, X, Lock } from 'lucide-react';
 
-export default function IntegrationsClient({ isConnected }: { isConnected: boolean }) {
+export default function IntegrationsClient({ isConnected: initialConnected }: { isConnected: boolean }) {
   const [modal, setModal] = useState<'error' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(initialConnected);
+
+  // MCP OAuth コールバック後の状態反映
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mf_mcp_connected') === '1') {
+      setIsConnected(true);
+    }
+    if (params.get('mf_mcp_error')) {
+      setModal('error');
+    }
+  }, []);
 
   async function handleConnect() {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/mf/start');
-      const data = (await res.json()) as { url?: string; error?: string };
-
-      if (!res.ok || data.error) {
-        setModal('error');
-        return;
-      }
-      if (data.url) {
-        window.location.href = data.url;
-      }
+      // MCP OAuth 認可開始 — サーバーが 302 リダイレクトを返す
+      window.location.href = '/api/auth/mf-mcp/start';
     } catch {
       setModal('error');
-    } finally {
       setLoading(false);
     }
   }
