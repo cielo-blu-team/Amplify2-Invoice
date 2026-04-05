@@ -364,12 +364,33 @@ export async function callMcpTool(
 }
 
 // ── 会計操作の高レベル API ───────────────────────────────────────────────────
+//
+// ツール名マッピング（MF MCP サーバー実装に準拠）:
+//   mfc_ca_currentOffice           — 事業者情報・会計期間
+//   mfc_ca_en_ja_dictionary        — 英日辞書
+//   mfc_ca_getAccounts             — 勘定科目
+//   mfc_ca_getConnectedAccounts    — 連携サービス
+//   mfc_ca_getDepartments          — 部門
+//   mfc_ca_getJournalById          — 仕訳（個別）
+//   mfc_ca_getJournals             — 仕訳一覧
+//   mfc_ca_getReportsTransitionBalanceSheet  — 推移表（BS）
+//   mfc_ca_getReportsTransitionProfitLoss    — 推移表（PL）
+//   mfc_ca_getReportsTrialBalanceBalanceSheet — 残高試算表（BS）
+//   mfc_ca_getReportsTrialBalanceProfitLoss   — 残高試算表（PL）
+//   mfc_ca_getSubAccounts          — 補助科目
+//   mfc_ca_getTaxes                — 税区分
+//   mfc_ca_getTradePartners        — 取引先
+//   mfc_ca_postJournals            — 仕訳作成
+//   mfc_ca_postTradePartners       — 取引先作成
+//   mfc_ca_postTransactions        — 明細作成
+//   mfc_ca_postVouchers            — 証憑保存
+//   mfc_ca_putJournals             — 仕訳更新
 
 /**
- * 事業者情報を取得する
+ * 事業者情報・会計期間を取得する
  */
 export async function getOfficeInfo(): Promise<MFMcpResult> {
-  return callMcpTool('get_office');
+  return callMcpTool('mfc_ca_currentOffice');
 }
 
 /**
@@ -378,46 +399,125 @@ export async function getOfficeInfo(): Promise<MFMcpResult> {
 export async function getJournals(params?: {
   start_date?: string;
   end_date?: string;
-  page?: number;
 }): Promise<MFMcpResult> {
-  return callMcpTool('list_journals', params ?? {});
+  return callMcpTool('mfc_ca_getJournals', params ?? {});
+}
+
+/**
+ * 仕訳を個別取得する
+ */
+export async function getJournalById(id: string): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getJournalById', { id });
 }
 
 /**
  * 仕訳を作成する
  */
 export async function createJournal(journal: Record<string, unknown>): Promise<MFMcpResult> {
-  return callMcpTool('create_journal', journal);
+  return callMcpTool('mfc_ca_postJournals', journal);
+}
+
+/**
+ * 仕訳を更新する
+ */
+export async function updateJournal(journal: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_putJournals', journal);
 }
 
 /**
  * 勘定科目一覧を取得する
  */
 export async function getAccountItems(): Promise<MFMcpResult> {
-  return callMcpTool('list_account_items', {});
+  return callMcpTool('mfc_ca_getAccounts');
+}
+
+/**
+ * 補助科目一覧を取得する
+ */
+export async function getSubAccounts(): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getSubAccounts');
 }
 
 /**
  * 取引先一覧を取得する
  */
 export async function getPartners(): Promise<MFMcpResult> {
-  return callMcpTool('list_partners', {});
+  return callMcpTool('mfc_ca_getTradePartners');
 }
 
 /**
- * 残高試算表を取得する
+ * 取引先を作成する
  */
-export async function getTrialBalance(params?: {
-  fiscal_year?: number;
-  start_month?: number;
-  end_month?: number;
-}): Promise<MFMcpResult> {
-  return callMcpTool('get_trial_balance', params ?? {});
+export async function createPartner(partner: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_postTradePartners', partner);
+}
+
+/**
+ * 部門一覧を取得する
+ */
+export async function getDepartments(): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getDepartments');
 }
 
 /**
  * 税区分一覧を取得する
  */
 export async function getTaxCodes(): Promise<MFMcpResult> {
-  return callMcpTool('list_tax_codes', {});
+  return callMcpTool('mfc_ca_getTaxes');
+}
+
+/**
+ * 残高試算表（貸借対照表）を取得する
+ */
+export async function getTrialBalanceBS(params?: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getReportsTrialBalanceBalanceSheet', params ?? {});
+}
+
+/**
+ * 残高試算表（損益計算書）を取得する
+ */
+export async function getTrialBalancePL(params?: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getReportsTrialBalanceProfitLoss', params ?? {});
+}
+
+/**
+ * 推移表（貸借対照表）を取得する
+ */
+export async function getTransitionBS(params?: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getReportsTransitionBalanceSheet', params ?? {});
+}
+
+/**
+ * 推移表（損益計算書）を取得する
+ */
+export async function getTransitionPL(params?: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getReportsTransitionProfitLoss', params ?? {});
+}
+
+/**
+ * 連携サービス一覧を取得する
+ */
+export async function getConnectedAccounts(): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_getConnectedAccounts');
+}
+
+/**
+ * 明細を作成する
+ */
+export async function createTransaction(transaction: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_postTransactions', transaction);
+}
+
+/**
+ * 証憑を保存する
+ */
+export async function createVoucher(voucher: Record<string, unknown>): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_postVouchers', voucher);
+}
+
+/**
+ * 英日辞書を取得する
+ */
+export async function getDictionary(): Promise<MFMcpResult> {
+  return callMcpTool('mfc_ca_en_ja_dictionary');
 }

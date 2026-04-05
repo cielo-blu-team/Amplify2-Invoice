@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserRole } from '@/lib/auth-server';
 import { authorize } from '@/lib/auth';
-import { listMcpTools, getOfficeInfo, closeMcpClient } from '@/lib/mf-mcp-client';
+import { listMcpTools, getOfficeInfo, getDictionary, closeMcpClient } from '@/lib/mf-mcp-client';
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 
 /**
@@ -32,7 +32,11 @@ export async function GET() {
       })),
     };
 
-    // 2. 事業者情報を取得
+    // 2. 英日辞書を取得（初回呼び出し推奨）
+    const dict = await getDictionary();
+    results.dictionary = { success: dict.success };
+
+    // 3. 事業者情報を取得
     const officeInfo = await getOfficeInfo();
     results.office = officeInfo;
 
