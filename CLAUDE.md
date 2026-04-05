@@ -155,6 +155,22 @@ MCPサーバーURL（推奨）: https://beta.mcp.developers.biz.moneyforward.com
 - マスタ: 勘定科目・補助科目・取引先・部門・税区分（取得のみ）
 - 入出金明細の作成
 
+主要ファイル:
+- `src/lib/mf-mcp-client.ts` — MCP クライアント（@modelcontextprotocol/sdk 使用）
+
+APIエンドポイント:
+```
+/api/auth/mf-mcp/start    → MCP OAuth 認可開始（管理者が初回実行）
+/api/auth/mf-mcp/callback → 認可コード受信 → トークン交換
+/api/mf-mcp/test           → 接続テスト（ツール一覧＋事業者情報取得）
+/api/mf-mcp/tools          → GET: ツール一覧 / POST: ツール実行
+```
+
+トークン管理:
+- MCP SDK の OAuthClientProvider 経由で自動管理
+- トークン: Secret Manager `mf-mcp-oauth-tokens` に JSON で保存
+- クライアント情報: Secret Manager `mf-mcp-client-info` に保存（動的クライアント登録時）
+
 事前準備:
 1. アプリポータル（https://app-portal.moneyforward.com/）の利用開始（全権管理者）
 2. ユーザーに「アプリ連携」+「クラウド会計・確定申告」権限を付与
