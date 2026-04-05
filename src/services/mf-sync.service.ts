@@ -19,10 +19,39 @@ import * as settingsRepo from '@/repositories/system-settings.repository';
 import { getFirestoreClient } from '@/repositories/_firestore-client';
 import { COLLECTIONS } from '@/lib/constants';
 
-// ── MF仕訳の型（MCPレスポンス） ─────────────────────────────────────────────
+// ── MF仕訳の型（MCP MCPレスポンス実構造） ────────────────────────────────────
+
+interface MFBranchSide {
+  account_id?: string;
+  account_name?: string;
+  sub_account_id?: string;
+  sub_account_name?: string;
+  department_id?: string | null;
+  department_name?: string | null;
+  tax_id?: string;
+  tax_name?: string;
+  tax_long_name?: string;
+  tax_value?: number;
+  trade_partner_code?: string | null;
+  trade_partner_name?: string | null;
+  invoice_kind?: string;
+  value?: number;
+}
+
+interface MFBranch {
+  debitor?: MFBranchSide;
+  creditor?: MFBranchSide;
+  remark?: string;
+}
 
 interface MFJournalEntry {
   id: string;
+  transaction_date?: string;
+  memo?: string;
+  number?: number;
+  journal_type?: string;
+  branches?: MFBranch[];
+  // 旧形式との互換用
   journal_date?: string;
   description?: string;
   amount?: number;
@@ -69,8 +98,32 @@ async function getExistingMfJournalIds(mfIds: string[]): Promise<Set<string>> {
 // ── MF仕訳 → 分類用入力への変換 ─────────────────────────────────────────────
 
 function toClassificationInput(journal: MFJournalEntry): JournalEntryForClassification {
-  const debitEntry = journal.entries?.find((e) => e.side === 'debit') ?? journal.entries?.[0];
+  // MF MCP v3 の branches 形式を優先
+  const branch = journal.branches?.[0];
+  if (branch) {
+    const debitor = branch.debitor;
+    const creditor = branch.creditor;
+    // 金額は debit 側の value を使用
+    const amount = debitor?.value ?? creditor?.value ?? 0;
+    // 取引先は debit/credit どちらかにある
+    const vendor = debitor?.trade_partner_name ?? creditor?.trade_partner_name ?? '';
+    // 摘要は branch.remark > journal.memo
+    const description = branch.remark ?? journal.memo ?? '';
 
+    return {
+      id: journal.id,
+      vendor,
+      description,
+      amount,
+      accountItem: debitor?.account_name,
+      subAccount: debitor?.sub_account_name,
+      department: debitor?.department_name ?? undefined,
+      taxCode: debitor?.tax_name,
+    };
+  }
+
+  // 旧形式のフォールバック
+  const debitEntry = journal.entries?.find((e) => e.side === 'debit') ?? journal.entries?.[0];
   return {
     id: journal.id,
     vendor: debitEntry?.partner_name ?? '',
@@ -96,7 +149,7 @@ function toExpense(
 
   return {
     expenseId: randomUUID(),
-    date: journal.journal_date ?? new Date().toISOString().slice(0, 10),
+    date: journal.transaction_date ?? journal.journal_date ?? new Date().toISOString().slice(0, 10),
     vendor: input.vendor,
     description: input.description,
     amount: input.amount,
