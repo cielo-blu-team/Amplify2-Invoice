@@ -54,13 +54,26 @@ export interface Expense {
   clientId?: string;
   projectId?: string;
   isAutoClassified: boolean;
-  source: 'manual' | 'import';
+  source: 'manual' | 'import' | 'mf_sync';
   status: ExpenseStatus; // pending=仮登録 / confirmed=本確定
   confirmedAt?: string;
   confirmedBy?: string;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
+
+  // MF連携フィールド
+  mfJournalId?: string;          // MF仕訳ID（重複排除キー）
+  mfAccountItem?: string;        // MFの勘定科目名
+  mfSubAccount?: string;         // MFの補助科目名
+  mfDepartment?: string;         // MFの部門名
+  mfTaxCode?: string;            // MFの税区分
+  mfRawData?: Record<string, unknown>; // MF仕訳の生データ
+
+  // AI分類フィールド
+  aiConfidence?: number;                // AI確信度（0-100）
+  aiSuggestedCategory?: ExpenseCategory; // AIの分類候補
+  aiSuggestedAccountItem?: string;       // AIの勘定科目候補
 }
 
 // 経費作成入力
@@ -110,6 +123,57 @@ export interface ExpenseRuleCreateInput {
   category: ExpenseCategory;
   subCategory?: string;
   priority?: number;
+}
+
+// AI分類修正履歴（学習用）
+export interface ClassificationHistory {
+  historyId: string;
+  mfJournalId?: string;
+  vendor: string;
+  description: string;
+  amount: number;
+  aiCategory: ExpenseCategory;
+  aiConfidence: number;
+  aiAccountItem?: string;
+  finalCategory: ExpenseCategory;
+  finalAccountItem?: string;
+  correctedBy: string;
+  correctedAt: string;
+}
+
+// 取り込みログ
+export interface ExpenseImportLog {
+  logId: string;
+  importedAt: string;
+  source: 'mf_sync';
+  totalFetched: number;
+  newImported: number;
+  skippedDuplicate: number;
+  autoConfirmed: number;   // AI確信度90%以上で自動確定した件数
+  pendingReview: number;   // 手動確認待ちの件数
+  errors: number;
+  errorDetails?: string[];
+}
+
+// システム設定
+export interface SystemSettings {
+  slackReminderChannel?: string;      // 催促通知先Slackチャンネル
+  mfSyncEnabled: boolean;             // MF自動取り込み有効/無効
+  mfLastSyncAt?: string;              // 最終取り込み日時
+  aiConfidenceThreshold: number;      // AI分類の自動確定閾値（デフォルト90）
+}
+
+// 催促通知ログ（重複送信防止）
+export type ReminderType = 'pre_due' | 'overdue' | 'overdue_3d' | 'overdue_7d' | 'overdue_14d';
+
+export interface PaymentReminderLog {
+  logId: string;
+  documentId: string;
+  documentNumber: string;
+  reminderType: ReminderType;
+  sentAt: string;
+  slackChannel: string;
+  slackMessageTs?: string;
 }
 
 // 収支データ

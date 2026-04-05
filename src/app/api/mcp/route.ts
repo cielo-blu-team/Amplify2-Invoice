@@ -144,6 +144,42 @@ function createMcpServer(): McpServer {
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   });
 
+  // 経費一覧
+  server.registerTool('list_expenses', {
+    description: '経費一覧を取得する。ステータス（pending=未仕訳/confirmed=確定済み）・カテゴリ・月でフィルタ可能。',
+    inputSchema: tools.listExpensesSchema,
+  }, async (args) => {
+    const result = await tools.listExpensesTool(args as Parameters<typeof tools.listExpensesTool>[0]);
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+  });
+
+  // 経費承認
+  server.registerTool('approve_expenses', {
+    description: '指定した経費IDの一覧を確定済みにする。',
+    inputSchema: tools.approveExpensesSchema,
+  }, async (args) => {
+    const result = await tools.approveExpensesTool(args as Parameters<typeof tools.approveExpensesTool>[0]);
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+  });
+
+  // 収支（PL）取得
+  server.registerTool('get_profit_loss', {
+    description: '月別の収支（売上・費用・利益）サマリを取得する。',
+    inputSchema: tools.getProfitLossSchema,
+  }, async (args) => {
+    const result = await tools.getProfitLossTool(args as Parameters<typeof tools.getProfitLossTool>[0]);
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+  });
+
+  // MF仕訳手動同期
+  server.registerTool('trigger_mf_sync', {
+    description: 'マネーフォワードの仕訳データを手動で取り込む。AI分類も実行される。',
+    inputSchema: tools.triggerMfSyncSchema,
+  }, async () => {
+    const result = await tools.triggerMfSyncTool();
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+  });
+
   return server;
 }
 

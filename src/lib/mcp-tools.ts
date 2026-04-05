@@ -320,3 +320,48 @@ export async function getDashboard(args: z.infer<typeof getDashboardSchema>) {
   const { dashboardService } = await import('@/services/dashboard.service');
   return dashboardService.getDashboardData();
 }
+
+// ────────────────────────────────────────────────────────────────
+// 経費・PL・MF同期 ツール
+// ────────────────────────────────────────────────────────────────
+
+export const listExpensesSchema = z.object({
+  status: z.enum(['pending', 'confirmed']).optional().describe('ステータスフィルタ'),
+  category: z.string().optional().describe('カテゴリフィルタ'),
+  month: z.string().optional().describe('月フィルタ YYYY-MM'),
+  limit: z.number().int().positive().max(200).optional().describe('取得件数'),
+});
+
+export const approveExpensesSchema = z.object({
+  expenseIds: z.array(z.string()).min(1).describe('確定する経費IDの配列'),
+});
+
+export const getProfitLossSchema = z.object({
+  months: z.number().int().min(1).max(24).optional().describe('集計対象月数（デフォルト6）'),
+});
+
+export const triggerMfSyncSchema = z.object({});
+
+export async function listExpensesTool(args: z.infer<typeof listExpensesSchema>) {
+  authorize(getMcpRole(), 'document:read');
+  const expenseService = await import('@/services/expense.service');
+  return expenseService.listExpenses(args);
+}
+
+export async function approveExpensesTool(args: z.infer<typeof approveExpensesSchema>) {
+  authorize(getMcpRole(), 'document:approve');
+  const expenseService = await import('@/services/expense.service');
+  return expenseService.approveExpenses(args.expenseIds, 'mcp_user');
+}
+
+export async function getProfitLossTool(args: z.infer<typeof getProfitLossSchema>) {
+  authorize(getMcpRole(), 'document:read');
+  const expenseService = await import('@/services/expense.service');
+  return expenseService.getProfitLoss(args.months);
+}
+
+export async function triggerMfSyncTool() {
+  authorize(getMcpRole(), 'document:create');
+  const { runMfSync } = await import('@/services/mf-sync.service');
+  return runMfSync();
+}

@@ -48,6 +48,15 @@ class NotificationService {
     if (!res.ok) throw new Error(`Slack送信失敗: ${res.statusText}`);
   }
 
+  // 汎用: 指定チャンネルにメッセージを送信
+  async sendToChannel(
+    channel: string,
+    text: string,
+    blocks?: Array<Record<string, unknown>>,
+  ): Promise<void> {
+    await this.sendToSlack({ channel, text, blocks: blocks as SlackBlock[] });
+  }
+
   // 3A-02: 承認依頼通知（Block Kit）
   async notifyApprovalRequested(params: {
     documentId: string;
