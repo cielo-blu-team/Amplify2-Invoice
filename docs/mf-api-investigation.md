@@ -180,24 +180,111 @@ mfc/{サービス名}/{リソース}.{権限}
 
 ---
 
-## 9. 現在の課題と次のアクション
+## 9. クラウド会計 MCPサーバー（通常会計対応 — 推奨）
+
+ソース: https://biz.moneyforward.com/support/account/guide/others/ot10.html
+
+### 概要
+
+MFは通常の「クラウド会計・確定申告」向けに**MCPサーバー**を公式提供している。
+パートナーAPI（REST）では会計Plus契約が必要だが、**MCPサーバー経由であれば通常のクラウド会計でも仕訳操作が可能**。追加料金なし。
+
+### 対象
+- マネーフォワード クラウド会計・確定申告をご利用中のユーザー
+- 会計Plusの契約は**不要**
+
+### MCPサーバーURL
+
+| URL | 提供開始 | 備考 |
+|---|---|---|
+| `https://alpha.mcp.developers.biz.moneyforward.com/mcp/ca/v3` | 2026-03-26 | 1時間ごとに再認証が必要 |
+| `https://beta.mcp.developers.biz.moneyforward.com/mcp/ca/v3` | 2026-04-01 | 認証時間延長 + 再認証自動化（**推奨**） |
+
+> **注意**: Gemini CLI は beta URL を利用できない（認証方式の差異）。alpha を使用すること。
+
+### MCP設定ファイル例
+```json
+{
+  "mcpServers": {
+    "mfc_ca": {
+      "url": "https://beta.mcp.developers.biz.moneyforward.com/mcp/ca/v3"
+    }
+  }
+}
+```
+
+### 利用可能な操作（MCPツール）
+
+| カテゴリ | 操作 |
+|---|---|
+| **事業者** | 事業者情報の取得 |
+| **仕訳** | 仕訳一覧の取得、仕訳の取得、仕訳の新規作成、仕訳の更新 |
+| **帳票** | 残高試算表の取得、推移表の取得 |
+| **マスタ** | 勘定科目の取得、補助科目の取得、取引先の取得、部門の取得、税区分の取得 |
+| **明細** | 入出金明細の作成 |
+
+### 事前準備
+
+1. **アプリポータルの利用開始**（管理コンソールの「全権管理」権限が必要）
+   - https://app-portal.moneyforward.com/ にログイン
+   - 事業者を選択
+
+2. **ユーザーへの権限付与**（アプリポータル → ユーザー → 編集）
+   - 「アプリ連携」にチェック
+   - 「クラウド会計・確定申告」にチェック
+
+### 注意事項
+- 認可コードがAIツールの学習に使用されないよう、データ収集を許可しない設定で利用する
+- 複数事業者を扱う場合は操作開始時に事業者情報を確認する
+- 事業者を切り替える場合はチャットセッションを終了してから再設定する
+- 登録可能な仕訳件数等は有償プランの制限と同様
+
+### API方式との比較
+
+| 項目 | REST API（会計Plus） | MCPサーバー（通常会計） |
+|---|---|---|
+| 対象プラン | 会計Plus のみ | クラウド会計・確定申告（全プラン） |
+| 追加料金 | なし（Plus契約は必要） | なし |
+| 認証 | OAuth 2.0 / APIキー | MCP OAuth（自動） |
+| 仕訳 CRUD | o (v3/v4) | o（取得・作成・更新） |
+| 仕訳削除 | o | x（未提供） |
+| 証憑ファイル | o (v4) | x |
+| 帳票 | 試算表BS/PL, 部門別, 取引先別, 月次推移, プロジェクト | 残高試算表, 推移表 |
+| マスタ CRUD | o（取引先は作成・更新・削除も可） | 取得のみ |
+| 入出金明細 | x | o（作成） |
+| 接続方式 | HTTP REST | MCP (Streamable HTTP) |
+| プログラムから利用 | 容易（fetch / axios 等） | MCP Client SDK が必要 |
+
+---
+
+## 10. 現在の課題と次のアクション
 
 ### 現状
 - OAuth認証フローは正常動作（トークン取得成功）
-- `enterprise-accounting` API → `403 has_no_contract`（会計Plus未契約）
-- 通常のクラウド会計用パートナーAPIは開発者サイトに未掲載
+- `enterprise-accounting` REST API → `403 has_no_contract`（会計Plus未契約）
+- 通常のクラウド会計用パートナー REST API は開発者サイトに未掲載
+- **MCPサーバー経由であれば通常のクラウド会計でも仕訳操作が可能**（セクション9参照）
 
-### 次のアクション
-1. **`biz-admin` APIで利用中サービスを確認**
-   - スコープ: `mfc/biz-admin/tenant.service.read`
-   - エンドポイント: `GET https://api.biz-admin.moneyforward.com/v1/tenant/active_services`
-   - これにより、テナントで利用可能なサービスとAPI名を特定できる
+### 推奨アプローチ: MCPサーバー連携
 
-2. **事業者情報APIで接続確認**
-   - スコープ: `mfc/admin/tenant.read`
-   - エンドポイント: `GET https://api.biz.moneyforward.com/v2/tenant`
-   - 全プランで利用可能、OAuth動作の疎通確認に使用
+会計Plus未契約の場合、**MCPサーバー経由での連携が最も現実的**。
 
-3. **アプリポータルの「アプリ連携権限」を確認**
-   - 連携可能なサービス一覧に「会計」が含まれるか確認
+1. **Courage Invoice サーバーから MCP Client として接続**
+   - MCP Client SDK (`@modelcontextprotocol/sdk`) を使用
+   - beta URL: `https://beta.mcp.developers.biz.moneyforward.com/mcp/ca/v3`
+   - OAuth認証はMCPプロトコルが自動処理
+
+2. **アプリポータルの権限設定**
+   - 「アプリ連携」+「クラウド会計・確定申告」をユーザーに付与
    - URL: https://app-portal.moneyforward.com/
+
+3. **実装する機能**
+   - 仕訳一覧取得・仕訳作成（請求書の会計連携）
+   - 勘定科目・取引先マスタ取得（帳票作成時のマッピング）
+   - 残高試算表取得（ダッシュボード連携）
+
+### 代替アプローチ: REST API（会計Plus契約後）
+
+将来的に会計Plus契約を追加した場合は、既存のOAuthコードがそのまま動作する。
+- `src/lib/mf-oauth-client.ts` のスコープ・エンドポイント設定は会計Plus用に準備済み
+- `enterprise-accounting` API でプログラム的なアクセスが可能

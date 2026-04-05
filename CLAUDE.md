@@ -131,38 +131,51 @@ echo -n "NEW_VALUE" | CLOUDSDK_PYTHON=/opt/homebrew/bin/python3.11 \
 
 ---
 
-## MF会計 API 連携
+## MF会計連携
 
-### 認証フロー（OAuth 2.0）
+### 連携方式
+
+| 方式 | 対象プラン | 状態 |
+|---|---|---|
+| **MCPサーバー（推奨）** | クラウド会計・確定申告（全プラン） | 利用可能 |
+| REST API | 会計Plus のみ | `403 has_no_contract`（未契約） |
+
+### MCPサーバー連携（通常会計 — 推奨）
+
+MFが公式提供するMCPサーバー経由で、通常のクラウド会計の仕訳・マスタ・帳票にアクセスできる。
+
+```
+MCPサーバーURL（推奨）: https://beta.mcp.developers.biz.moneyforward.com/mcp/ca/v3
+```
+
+利用可能な操作:
+- 事業者情報取得
+- 仕訳: 一覧取得・個別取得・新規作成・更新
+- 帳票: 残高試算表・推移表
+- マスタ: 勘定科目・補助科目・取引先・部門・税区分（取得のみ）
+- 入出金明細の作成
+
+事前準備:
+1. アプリポータル（https://app-portal.moneyforward.com/）の利用開始（全権管理者）
+2. ユーザーに「アプリ連携」+「クラウド会計・確定申告」権限を付与
+
+### REST API 連携（会計Plus — 将来用）
+
+OAuth 2.0 認証コードは実装済み。会計Plus契約後にそのまま利用可能。
+
 ```
 /api/auth/mf/start  → MF認可画面へリダイレクト（管理者が初回実行）
 /api/auth/mf/callback → 認可コードでトークン取得 → Secret Manager 保存
-/api/auth/mf/test → 接続テスト（v2/tenant, biz-admin, enterprise-accounting）
+/api/auth/mf/test → 接続テスト
 ```
 
-### 主要ファイル
+主要ファイル:
 - `src/lib/mf-oauth-client.ts` — OAuth クライアント（トークン取得・更新・ローテーション）
 
-### API体系
-- 認証基盤: `https://api.biz.moneyforward.com` (/authorize, /token)
-- 事業者情報: `https://api.biz.moneyforward.com/v2/tenant`
-- 管理コンソール: `https://api.biz-admin.moneyforward.com/v1/`
-- 会計Plus: `https://api-enterprise-accounting.moneyforward.com/api/v3/`
-
-### スコープ
-```
-mfc/admin/tenant.read                     # 事業者情報（全プラン共通）
-mfc/biz-admin/tenant.service.read         # 利用中サービス確認
-mfc/enterprise-accounting/journal.read    # 会計Plus 仕訳
-mfc/enterprise-accounting/master.read     # 会計Plus マスタ
-mfc/enterprise-accounting/office.read     # 会計Plus 事業者情報
-mfc/enterprise-accounting/report.read     # 会計Plus 帳票
-```
-
-### トークン管理
+トークン管理:
 - アクセストークン: メモリキャッシュ（有効期限5分前に更新）
 - リフレッシュトークン: Secret Manager に自動ローテーション保存
-- Cloud Run SA (`invoice-cloud-run@courage-invoice-prod.iam.gserviceaccount.com`) に `secretmanager.secretVersionAdder` 権限付与済み
+- Cloud Run SA に `secretmanager.secretVersionAdder` 権限付与済み
 
 ### 詳細ドキュメント
 → `docs/mf-api-investigation.md`
