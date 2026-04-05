@@ -1,6 +1,6 @@
 # CLAUDE.md — Courage Invoice プロジェクト
 
-IS Holdings 向け帳票管理システム（見積書・請求書）。
+IS Holdings 向け帳票管理システム（見積書・請求書・経費）。
 
 ---
 
@@ -9,14 +9,26 @@ IS Holdings 向け帳票管理システム（見積書・請求書）。
 | 項目 | 内容 |
 |---|---|
 | フレームワーク | Next.js 15 (App Router) |
-| 言語 | TypeScript |
+| 言語 | TypeScript (strict: true) |
 | パッケージマネージャー | **pnpm** (`pnpm add` を使うこと) |
 | 認証 | Firebase Authentication (Google / メール+パスワード) |
 | DB | Firestore |
 | ストレージ | Google Cloud Storage |
 | ホスティング | Cloud Run (`courage-invoice`, `asia-northeast1`) |
 | GCPプロジェクト | `courage-invoice-prod` |
-| CI/CD | GitHub Actions → Cloud Run 自動デプロイ |
+| CI/CD | GitHub Actions → Cloud Run 自動デプロイ (`main` push) |
+| 外部連携 | マネーフォワード クラウド会計 API, Slack Bot, MCP (claude.ai) |
+
+---
+
+## 開発コマンド
+
+```bash
+pnpm dev          # ローカル開発サーバー (localhost:3000)
+pnpm build        # プロダクションビルド
+pnpm lint         # ESLint
+pnpm typecheck    # TypeScript型チェック
+```
 
 ---
 
@@ -30,8 +42,55 @@ gh run list --repo cielo-blu-team/Amplify2-Invoice --limit=5
 ```
 
 Cloud Run サービス URL:
-- `https://courage-invoice-uy4whq3gaa-an.a.run.app`（旧）
-- `https://courage-invoice-649548596161.asia-northeast1.run.app`（新）
+- `https://courage-invoice-649548596161.asia-northeast1.run.app`
+
+---
+
+## アーキテクチャ
+
+```
+src/
+├── app/                  # Next.js App Router
+│   ├── api/
+│   │   ├── auth/         # Firebase 認証 + MF OAuth エンドポイント
+│   │   ├── mcp/          # MCP HTTP エンドポイント（claude.ai 接続用）
+│   │   ├── pdf/          # PDF 生成
+│   │   ├── health/       # ヘルスチェック
+│   │   └── slack/events/ # Slack Events API
+│   ├── invoices/         # 請求書画面
+│   ├── estimates/        # 見積書画面
+│   ├── expenses/         # 経費画面
+│   ├── clients/          # 取引先画面
+│   ├── projects/         # プロジェクト画面
+│   ├── approvals/        # 承認画面
+│   ├── payments/         # 支払管理画面
+│   ├── analytics/        # 分析画面
+│   ├── audit-logs/       # 監査ログ画面
+│   ├── dashboard/        # ダッシュボード
+│   └── settings/         # 設定画面
+├── services/             # ビジネスロジック層 (*.service.ts)
+├── repositories/         # Firestore アクセス層 (*.repository.ts)
+├── lib/
+│   ├── auth.ts           # ロール別認可 (authorize 関数)
+│   ├── auth-server.ts    # サーバーサイド認証ヘルパー
+│   ├── mf-oauth-client.ts # MF会計 OAuth 2.0 クライアント
+│   ├── mcp-tools.ts      # MCP ツール実装（全14ツール）
+│   ├── slack-ai-handler.ts # Claude AI 会話型 Slack ハンドラ
+│   ├── firebase-admin.ts # Firebase Admin SDK 初期化
+│   ├── firebase-client.ts # Firebase Client SDK 初期化
+│   └── storage-gcs.ts    # GCS ストレージ操作
+└── types/                # 型定義 (document, client, user, etc.)
+```
+
+### レイヤー構成
+
+```
+App Router (API Route / Page) → Service → Repository → Firestore
+```
+
+- **Service 層**: ビジネスロジック。バリデーション、計算、ワークフロー制御
+- **Repository 層**: Firestore CRUD のみ。`_firestore-client.ts` で共通初期化
+- **型定義**: `src/types/` に集約。ドキュメント型は `document.ts`
 
 ---
 
@@ -42,7 +101,6 @@ Cloud Run サービス URL:
 | `ANTHROPIC_API_KEY` | secret | `anthropic-api-key` |
 | `FIREBASE_API_KEY` | secret | `firebase-api-key` |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | secret | `firebase-api-key` |
-| `MONEYFORWARD_API_KEY` | secret | `moneyforward-api-key` |
 | `MF_OAUTH_CLIENT_ID` | secret | `mf-oauth-client-id` |
 | `MF_OAUTH_CLIENT_SECRET` | secret | `mf-oauth-client-secret` |
 | `MF_OAUTH_REFRESH_TOKEN` | secret | `mf-oauth-refresh-token` |
@@ -61,25 +119,53 @@ echo -n "NEW_VALUE" | CLOUDSDK_PYTHON=/opt/homebrew/bin/python3.11 \
 
 ---
 
-## アーキテクチャ
+## ロール・認可
 
+`src/lib/auth.ts` の `authorize(role, action)` で制御。
+
+ロール階層: `user < accountant < admin`
+
+アクション一覧: `document:read`, `document:create`, `document:update`,
+`document:delete`, `document:approve`, `document:send`, `document:cancel`,
+`client:create`, `client:update`
+
+---
+
+## MF会計 API 連携
+
+### 認証フロー（OAuth 2.0）
 ```
-src/
-├── app/                  # Next.js App Router
-│   ├── api/
-│   │   ├── auth/         # Firebase 認証エンドポイント
-│   │   ├── mcp/          # MCP HTTP エンドポイント（claude.ai 接続用）
-│   │   └── slack/events/ # Slack Events API
-│   ├── invoices/         # 請求書画面
-│   └── estimates/        # 見積書画面
-├── services/             # ビジネスロジック層
-├── repositories/         # Firestore アクセス層
-├── lib/
-│   ├── mcp-tools.ts      # MCP ツール実装（全14ツール）
-│   ├── slack-ai-handler.ts # Claude AI 会話型 Slack ハンドラ
-│   └── auth.ts           # ロール別認可 (authorize 関数)
-└── types/                # 型定義
+/api/auth/mf/start  → MF認可画面へリダイレクト（管理者が初回実行）
+/api/auth/mf/callback → 認可コードでトークン取得 → Secret Manager 保存
+/api/auth/mf/test → 接続テスト（v2/tenant, biz-admin, enterprise-accounting）
 ```
+
+### 主要ファイル
+- `src/lib/mf-oauth-client.ts` — OAuth クライアント（トークン取得・更新・ローテーション）
+
+### API体系
+- 認証基盤: `https://api.biz.moneyforward.com` (/authorize, /token)
+- 事業者情報: `https://api.biz.moneyforward.com/v2/tenant`
+- 管理コンソール: `https://api.biz-admin.moneyforward.com/v1/`
+- 会計Plus: `https://api-enterprise-accounting.moneyforward.com/api/v3/`
+
+### スコープ
+```
+mfc/admin/tenant.read                     # 事業者情報（全プラン共通）
+mfc/biz-admin/tenant.service.read         # 利用中サービス確認
+mfc/enterprise-accounting/journal.read    # 会計Plus 仕訳
+mfc/enterprise-accounting/master.read     # 会計Plus マスタ
+mfc/enterprise-accounting/office.read     # 会計Plus 事業者情報
+mfc/enterprise-accounting/report.read     # 会計Plus 帳票
+```
+
+### トークン管理
+- アクセストークン: メモリキャッシュ（有効期限5分前に更新）
+- リフレッシュトークン: Secret Manager に自動ローテーション保存
+- Cloud Run SA (`invoice-cloud-run@courage-invoice-prod.iam.gserviceaccount.com`) に `secretmanager.secretVersionAdder` 権限付与済み
+
+### 詳細ドキュメント
+→ `docs/mf-api-investigation.md`
 
 ---
 
@@ -95,11 +181,11 @@ src/
 
 | 操作 | user | accountant | admin |
 |---|---|---|---|
-| 読み取り（一覧・詳細） | ✅ | ✅ | ✅ |
-| 作成・更新 | ❌ | ✅ | ✅ |
-| 削除 | ❌ | ❌ | ✅ |
-| 承認・否認 | ❌ | ❌ | ✅ |
-| 送付・キャンセル | ❌ | ✅ | ✅ |
+| 読み取り（一覧・詳細） | o | o | o |
+| 作成・更新 | x | o | o |
+| 削除 | x | x | o |
+| 承認・否認 | x | x | o |
+| 送付・キャンセル | x | o | o |
 
 ---
 
@@ -119,18 +205,6 @@ Slack App: **Courage Invoice**（ワークスペース: ish-courage）
 - `app_mention` — メンション
 - `message.im` — DM
 - `message.channels` — チャンネル内メッセージ（スレッド継続用）
-
----
-
-## ロール・認可
-
-`src/lib/auth.ts` の `authorize(role, action)` で制御。
-
-ロール階層: `user < accountant < admin`
-
-アクション一覧: `document:read`, `document:create`, `document:update`,
-`document:delete`, `document:approve`, `document:send`, `document:cancel`,
-`client:create`, `client:update`
 
 ---
 
