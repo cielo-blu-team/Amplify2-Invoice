@@ -68,8 +68,15 @@ export function buildAuthorizationUrl(state: string): string {
     response_type: 'code',
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
-    // 会計Plus APIのスコープ（読み取り権限 + 事業者情報）
-    scope: 'mfc/enterprise-accounting/journal.read mfc/enterprise-accounting/master.read mfc/enterprise-accounting/office.read mfc/enterprise-accounting/report.read',
+    // MFクラウド APIスコープ（事業者情報 + 管理コンソール + 会計Plus）
+    scope: [
+      'mfc/admin/tenant.read',                          // 事業者情報（全プラン共通）
+      'mfc/biz-admin/tenant.service.read',              // 利用中サービス確認
+      'mfc/enterprise-accounting/journal.read',          // 会計Plus 仕訳
+      'mfc/enterprise-accounting/master.read',           // 会計Plus マスタ
+      'mfc/enterprise-accounting/office.read',           // 会計Plus 事業者情報
+      'mfc/enterprise-accounting/report.read',           // 会計Plus 帳票
+    ].join(' '),
     state,
   });
   return `${MF_AUTH_BASE}/authorize?${params.toString()}`;
