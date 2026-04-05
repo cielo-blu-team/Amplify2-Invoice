@@ -11,11 +11,13 @@ import { cn } from '@/lib/utils';
 import type {
   OverallAnalytics, ClientAnalytics, ProjectAnalytics,
 } from '@/services/analytics.service';
+import type { ProfitLossSummary } from '@/types';
 
 interface Props {
   overall: OverallAnalytics | null;
   clients: ClientAnalytics[];
   projects: ProjectAnalytics | null;
+  profitLoss: ProfitLossSummary | null;
 }
 
 function fmt(n: number) { return '¥' + n.toLocaleString('ja-JP'); }
@@ -113,17 +115,55 @@ function MonthlyBarChart({ data }: { data: { month: string; invoiced: number; pa
   );
 }
 
+// ── P&L Bar Chart ──────────────────────────────────────────────
+function PLBarChart({ data }: { data: { month: string; revenue: number; expenses: number; profit: number }[] }) {
+  const maxVal = Math.max(...data.map((d) => Math.max(d.revenue, d.expenses)), 1);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-end gap-2 h-48 pt-4">
+        {data.map((d) => (
+          <div key={d.month} className="flex-1 flex flex-col items-center gap-0.5">
+            <div className="w-full flex gap-0.5 justify-center items-end" style={{ height: 160 }}>
+              {/* 売上 */}
+              <div
+                className="w-[40%] bg-indigo-400 rounded-t-sm"
+                style={{ height: `${(d.revenue / maxVal) * 100}%`, minHeight: d.revenue > 0 ? 2 : 0 }}
+                title={`売上: ¥${d.revenue.toLocaleString('ja-JP')}`}
+              />
+              {/* 費用 */}
+              <div
+                className="w-[40%] bg-orange-400 rounded-t-sm"
+                style={{ height: `${(d.expenses / maxVal) * 100}%`, minHeight: d.expenses > 0 ? 2 : 0 }}
+                title={`費用: ¥${d.expenses.toLocaleString('ja-JP')}`}
+              />
+            </div>
+            <span className="text-[10px] text-zinc-400">{d.month.slice(5)}</span>
+          </div>
+        ))}
+      </div>
+      {/* 利益の折れ線表示 */}
+      <div className="flex items-center gap-4 px-2 text-xs text-zinc-500">
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-400" />売上</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-400" />費用</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />利益</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────
-type Tab = 'overall' | 'clients' | 'projects';
+type Tab = 'overall' | 'clients' | 'projects' | 'pl';
 
 // ════════════════════════════════════════════════════════════════
-export default function AnalyticsClient({ overall, clients, projects }: Props) {
+export default function AnalyticsClient({ overall, clients, projects, profitLoss }: Props) {
   const [tab, setTab] = useState<Tab>('overall');
+  const [plGranularity, setPlGranularity] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'overall',  label: '全体概要',   icon: <BarChart2 className="h-4 w-4" /> },
     { id: 'clients',  label: '取引先分析', icon: <Users className="h-4 w-4" /> },
     { id: 'projects', label: '案件分析',   icon: <FolderKanban className="h-4 w-4" /> },
+    { id: 'pl',       label: '収支管理',   icon: <Wallet className="h-4 w-4" /> },
   ];
 
   return (
@@ -465,6 +505,141 @@ export default function AnalyticsClient({ overall, clients, projects }: Props) {
           </div>
         </div>
       )}
+
+      {/* ── P&L（収支管理） ── */}
+      {tab === 'pl' && profitLoss && (
+        <div className="space-y-5">
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: '総売上',   value: fmt(profitLoss.totalRevenue),  icon: TrendingUp,     color: 'text-indigo-600', bg: 'bg-indigo-50' },
+              { label: '総費用',   value: fmt(profitLoss.totalExpenses), icon: ArrowDownRight,  color: 'text-orange-600', bg: 'bg-orange-50' },
+              { label: '純利益',   value: fmt(profitLoss.totalProfit),   icon: ArrowUpRight,    color: profitLoss.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600', bg: profitLoss.totalProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
+              { label: '利益率',   value: `${profitLoss.profitMargin}%`, icon: CheckCircle2,    color: 'text-blue-600',   bg: 'bg-blue-50' },
+            ].map((kpi) => (
+              <Card key={kpi.label}>
+                <CardContent className="pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{kpi.label}</span>
+                    <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', kpi.bg)}>
+                      <kpi.icon className={cn('h-4 w-4', kpi.color)} />
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-zinc-900">{kpi.value}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* 粒度切り替え */}
+          <div className="flex gap-1 bg-zinc-100 p-1 rounded-lg w-fit">
+            {(['monthly', 'quarterly', 'yearly'] as const).map((g) => (
+              <button
+                key={g}
+                onClick={() => setPlGranularity(g)}
+                className={cn(
+                  'px-3 py-1.5 rounded text-xs font-medium transition-all',
+                  plGranularity === g
+                    ? 'bg-white text-zinc-900 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-700'
+                )}
+              >
+                {g === 'monthly' ? '月次' : g === 'quarterly' ? '四半期' : '年次'}
+              </button>
+            ))}
+          </div>
+
+          {/* グラフ */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-zinc-700">
+                {plGranularity === 'monthly' ? '月次' : plGranularity === 'quarterly' ? '四半期' : '年次'}収支推移
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PLBarChart data={aggregatePL(profitLoss.monthly, plGranularity)} />
+            </CardContent>
+          </Card>
+
+          {/* 月別テーブル */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-zinc-700">収支明細</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-zinc-50 text-zinc-500">
+                      <th className="text-left px-4 py-2 font-medium">期間</th>
+                      <th className="text-right px-4 py-2 font-medium">売上</th>
+                      <th className="text-right px-4 py-2 font-medium">費用</th>
+                      <th className="text-right px-4 py-2 font-medium">利益</th>
+                      <th className="text-right px-4 py-2 font-medium">利益率</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aggregatePL(profitLoss.monthly, plGranularity).map((row) => {
+                      const margin = row.revenue > 0 ? Math.round((row.profit / row.revenue) * 100) : 0;
+                      return (
+                        <tr key={row.month} className="border-t">
+                          <td className="px-4 py-2 font-medium text-zinc-700">{row.month}</td>
+                          <td className="px-4 py-2 text-right font-mono text-indigo-600">{fmt(row.revenue)}</td>
+                          <td className="px-4 py-2 text-right font-mono text-orange-600">{fmt(row.expenses)}</td>
+                          <td className={cn('px-4 py-2 text-right font-mono font-semibold', row.profit >= 0 ? 'text-emerald-600' : 'text-red-600')}>
+                            {fmt(row.profit)}
+                          </td>
+                          <td className="px-4 py-2 text-right text-zinc-500">{margin}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {tab === 'pl' && !profitLoss && (
+        <Card>
+          <CardContent className="py-16 text-center text-zinc-400 text-sm">
+            収支データがありません。請求書の発行や経費の登録を行うとここに表示されます。
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
+}
+
+// ── P&L集計ヘルパー ──────────────────────────────────────────────
+function aggregatePL(
+  monthly: { month: string; revenue: number; expenses: number; profit: number }[],
+  granularity: 'monthly' | 'quarterly' | 'yearly',
+): { month: string; revenue: number; expenses: number; profit: number }[] {
+  if (granularity === 'monthly') return monthly;
+
+  const groups = new Map<string, { revenue: number; expenses: number; profit: number }>();
+
+  for (const m of monthly) {
+    let key: string;
+    if (granularity === 'quarterly') {
+      const [year, mon] = m.month.split('-').map(Number);
+      const q = Math.ceil(mon / 3);
+      key = `${year} Q${q}`;
+    } else {
+      key = m.month.slice(0, 4);
+    }
+
+    const existing = groups.get(key) ?? { revenue: 0, expenses: 0, profit: 0 };
+    existing.revenue += m.revenue;
+    existing.expenses += m.expenses;
+    existing.profit += m.profit;
+    groups.set(key, existing);
+  }
+
+  return Array.from(groups.entries()).map(([month, data]) => ({
+    month,
+    ...data,
+  }));
 }

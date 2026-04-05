@@ -37,6 +37,7 @@ import {
   importExpenses, approveExpenses,
   createRule, updateRule, deleteRule,
 } from '@/actions/expense';
+import { correctAndApproveExpense } from '@/actions/expense-ai';
 
 // ─── 定数 ─────────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ function ExpenseRow({
   onDelete,
   showApproveBtn,
   onApprove,
+  onCorrect,
 }: {
   expense: Expense;
   selectable?: boolean;
@@ -119,6 +121,7 @@ function ExpenseRow({
   onDelete?: () => void;
   showApproveBtn?: boolean;
   onApprove?: () => void;
+  onCorrect?: () => void;
 }) {
   return (
     <TableRow className={selected ? 'bg-indigo-50' : undefined}>
@@ -142,19 +145,49 @@ function ExpenseRow({
         )}
       </TableCell>
       <TableCell className="text-xs text-zinc-400">{PAYMENT_METHOD_LABELS[expense.paymentMethod]}</TableCell>
-      <TableCell className="text-xs text-zinc-400">{expense.source === 'import' ? '取込' : '手動'}</TableCell>
+      <TableCell className="text-xs text-zinc-400">
+        {expense.source === 'mf_sync' ? 'MF同期' : expense.source === 'import' ? '取込' : '手動'}
+      </TableCell>
+      {/* AI確信度 */}
+      <TableCell>
+        {expense.aiConfidence != null && (
+          <span className={cn(
+            'text-xs px-1.5 py-0.5 rounded font-medium',
+            expense.aiConfidence >= 90
+              ? 'bg-green-50 text-green-700'
+              : expense.aiConfidence >= 70
+                ? 'bg-amber-50 text-amber-700'
+                : 'bg-red-50 text-red-700'
+          )}>
+            {expense.aiConfidence}%
+          </span>
+        )}
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           {showApproveBtn && (
-            <Button
-              variant="ghost" size="sm"
-              className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
-              onClick={onApprove}
-              title="承認"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-              承認
-            </Button>
+            <>
+              <Button
+                variant="ghost" size="sm"
+                className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                onClick={onApprove}
+                title="承認"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                承認
+              </Button>
+              {onCorrect && (
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                  onClick={onCorrect}
+                  title="修正して確定"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  修正
+                </Button>
+              )}
+            </>
           )}
           {onEdit && (
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700" onClick={onEdit} title="編集">
@@ -205,6 +238,12 @@ export default function ExpenseClient({ role, initialPending, initialConfirmed, 
   const [importJson, setImportJson] = useState('');
   const [importLoading, setImportLoading] = useState(false);
 
+  // AI修正ダイアログ
+  const [correctDialog, setCorrectDialog] = useState(false);
+  const [correctingExpense, setCorrectingExpense] = useState<Expense | null>(null);
+  const [correctCategory, setCorrectCategory] = useState<ExpenseCategory>('other');
+  const [correctAccountItem, setCorrectAccountItem] = useState('');
+
   // ルールダイアログ
   const [ruleDialog, setRuleDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<ExpenseRule | null>(null);
@@ -242,6 +281,35 @@ export default function ExpenseClient({ role, initialPending, initialConfirmed, 
     } else {
       setSelectedIds(new Set(pendingExpenses.map((e) => e.expenseId)));
     }
+  };
+
+  // ─── AI修正して確定 ─────────────────────────────────────────────────────
+
+  const openCorrectDialog = (expense: Expense) => {
+    setCorrectingExpense(expense);
+    setCorrectCategory(expense.aiSuggestedCategory ?? expense.category);
+    setCorrectAccountItem(expense.aiSuggestedAccountItem ?? '');
+    setCorrectDialog(true);
+  };
+
+  const handleCorrectAndApprove = async () => {
+    if (!correctingExpense) return;
+    const res = await correctAndApproveExpense(
+      correctingExpense.expenseId,
+      correctCategory,
+      correctAccountItem,
+    );
+    if (!res.success) { showError(res.error?.message ?? '修正に失敗しました'); return; }
+
+    // 未仕訳から確定済みに移動
+    setPendingExpenses((prev) => prev.filter((e) => e.expenseId !== correctingExpense.expenseId));
+    setConfirmedExpenses((prev) => [
+      { ...correctingExpense, category: correctCategory, status: 'confirmed' },
+      ...prev,
+    ]);
+    setCorrectDialog(false);
+    setCorrectingExpense(null);
+    showSuccess('修正して確定しました');
   };
 
   // ─── 確定済みフィルタ ─────────────────────────────────────────────────────
@@ -470,6 +538,7 @@ export default function ExpenseClient({ role, initialPending, initialConfirmed, 
                     <TableHead>カテゴリ</TableHead>
                     <TableHead>支払方法</TableHead>
                     <TableHead>取得元</TableHead>
+                    <TableHead>AI確信度</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -485,10 +554,11 @@ export default function ExpenseClient({ role, initialPending, initialConfirmed, 
                       onDelete={canWriteExpense ? () => handleDeleteExpense(e) : undefined}
                       showApproveBtn={canWriteExpense}
                       onApprove={() => handleApprove([e.expenseId])}
+                      onCorrect={canWriteExpense ? () => openCorrectDialog(e) : undefined}
                     />
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12 text-zinc-400 text-sm">
+                      <TableCell colSpan={10} className="text-center py-12 text-zinc-400 text-sm">
                         未仕訳の経費はありません
                       </TableCell>
                     </TableRow>
@@ -813,6 +883,80 @@ export default function ExpenseClient({ role, initialPending, initialConfirmed, 
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── AI修正ダイアログ ──────────────────────────────────────────────── */}
+      <Dialog open={correctDialog} onOpenChange={setCorrectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI分類を修正して確定</DialogTitle>
+          </DialogHeader>
+          {correctingExpense && (
+            <div className="space-y-4">
+              {/* 元の仕訳情報 */}
+              <div className="p-3 bg-zinc-50 rounded-lg text-sm space-y-1">
+                <p><span className="text-zinc-500">日付:</span> {correctingExpense.date}</p>
+                <p><span className="text-zinc-500">支払先:</span> {correctingExpense.vendor}</p>
+                <p><span className="text-zinc-500">摘要:</span> {correctingExpense.description}</p>
+                <p><span className="text-zinc-500">金額:</span> {fmt(correctingExpense.amount)}</p>
+                {correctingExpense.mfAccountItem && (
+                  <p><span className="text-zinc-500">MF勘定科目:</span> {correctingExpense.mfAccountItem}</p>
+                )}
+              </div>
+
+              {/* AI判定結果 */}
+              {correctingExpense.aiConfidence != null && (
+                <div className="p-3 bg-indigo-50 rounded-lg text-sm space-y-1">
+                  <p className="font-medium text-indigo-700">AI判定結果</p>
+                  <p>
+                    カテゴリ: {EXPENSE_CATEGORY_LABELS[correctingExpense.aiSuggestedCategory ?? correctingExpense.category]}
+                    <span className={cn(
+                      'ml-2 text-xs px-1.5 py-0.5 rounded font-medium',
+                      correctingExpense.aiConfidence >= 90
+                        ? 'bg-green-100 text-green-700'
+                        : correctingExpense.aiConfidence >= 70
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                    )}>
+                      確信度 {correctingExpense.aiConfidence}%
+                    </span>
+                  </p>
+                  {correctingExpense.aiSuggestedAccountItem && (
+                    <p>勘定科目: {correctingExpense.aiSuggestedAccountItem}</p>
+                  )}
+                </div>
+              )}
+
+              {/* 修正フォーム */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">カテゴリ</Label>
+                  <Select value={correctCategory} onValueChange={(v) => setCorrectCategory(v as ExpenseCategory)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">勘定科目</Label>
+                  <Input
+                    value={correctAccountItem}
+                    onChange={(e) => setCorrectAccountItem(e.target.value)}
+                    placeholder="勘定科目名を入力"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCorrectDialog(false)}>キャンセル</Button>
+            <Button onClick={handleCorrectAndApprove} className="bg-green-600 hover:bg-green-700 text-white">
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              修正して確定
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

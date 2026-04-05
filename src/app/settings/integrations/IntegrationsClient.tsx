@@ -1,12 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, CircleDashed, ExternalLink, ShieldAlert, X, Lock } from 'lucide-react';
+import { CheckCircle2, CircleDashed, ExternalLink, ShieldAlert, X, Lock, Settings, Bell, Zap } from 'lucide-react';
+import type { SystemSettings } from '@/types';
+import { updateSystemSettingsAction } from '@/actions/system-settings';
 
-export default function IntegrationsClient({ isConnected: initialConnected }: { isConnected: boolean }) {
+interface Props {
+  isConnected: boolean;
+  systemSettings: SystemSettings;
+}
+
+export default function IntegrationsClient({ isConnected: initialConnected, systemSettings: initialSettings }: Props) {
   const [modal, setModal] = useState<'error' | null>(null);
   const [loading, setLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(initialConnected);
+
+  // MF同期設定
+  const [settings, setSettings] = useState(initialSettings);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [slackChannel, setSlackChannel] = useState(initialSettings.slackReminderChannel ?? '');
+  const [threshold, setThreshold] = useState(String(initialSettings.aiConfidenceThreshold));
+  const [syncEnabled, setSyncEnabled] = useState(initialSettings.mfSyncEnabled);
 
   // MCP OAuth コールバック後の状態反映
   useEffect(() => {
@@ -87,6 +101,107 @@ export default function IntegrationsClient({ isConnected: initialConnected }: { 
               </p>
             </div>
           )}
+        </div>
+        {/* MF同期・催促通知設定 */}
+        <div className="bg-white rounded-xl border border-zinc-200 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <Settings className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-zinc-900">自動取り込み・通知設定</h3>
+              <p className="text-sm text-zinc-500">MF仕訳の自動取り込みと支払催促通知の設定</p>
+            </div>
+          </div>
+
+          {/* MF自動取り込み */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-medium text-zinc-700">MF仕訳の自動取り込み</span>
+              </div>
+              <button
+                onClick={() => setSyncEnabled(!syncEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${syncEnabled ? 'bg-indigo-600' : 'bg-zinc-200'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${syncEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {settings.mfLastSyncAt && (
+              <p className="text-xs text-zinc-400 ml-6">
+                最終取り込み: {new Date(settings.mfLastSyncAt).toLocaleString('ja-JP')}
+              </p>
+            )}
+          </div>
+
+          {/* AI確信度閾値 */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-zinc-700">AI分類の自動確定閾値</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="50"
+                max="100"
+                step="5"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                className="flex-1 accent-indigo-600"
+              />
+              <span className="text-sm font-mono font-semibold text-zinc-700 w-12 text-right">{threshold}%</span>
+            </div>
+            <p className="text-xs text-zinc-400">
+              確信度がこの値以上のAI分類結果は自動確定されます（デフォルト: 90%）
+            </p>
+          </div>
+
+          {/* Slack催促チャンネル */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-zinc-500" />
+              <label className="text-sm font-medium text-zinc-700">支払催促の通知先Slackチャンネル</label>
+            </div>
+            <input
+              type="text"
+              value={slackChannel}
+              onChange={(e) => setSlackChannel(e.target.value)}
+              placeholder="#payment-alerts"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+            <p className="text-xs text-zinc-400">
+              支払期日の前日・超過時・3日超過・7日超過・14日超過にSlack通知を送信します
+            </p>
+          </div>
+
+          {/* 保存ボタン */}
+          <div className="flex justify-end">
+            <button
+              onClick={async () => {
+                setSavingSettings(true);
+                try {
+                  const res = await updateSystemSettingsAction({
+                    mfSyncEnabled: syncEnabled,
+                    aiConfidenceThreshold: parseInt(threshold, 10) || 90,
+                    slackReminderChannel: slackChannel || undefined,
+                  });
+                  if (res.success) {
+                    setSettings((prev) => ({
+                      ...prev,
+                      mfSyncEnabled: syncEnabled,
+                      aiConfidenceThreshold: parseInt(threshold, 10) || 90,
+                      slackReminderChannel: slackChannel || undefined,
+                    }));
+                  }
+                } finally {
+                  setSavingSettings(false);
+                }
+              }}
+              disabled={savingSettings}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
+            >
+              {savingSettings ? '保存中...' : '設定を保存'}
+            </button>
+          </div>
         </div>
       </div>
 

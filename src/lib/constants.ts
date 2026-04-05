@@ -70,6 +70,10 @@ export const COLLECTIONS = {
   EXPENSES: 'expenses',
   EXPENSE_RULES: 'expenseRules',
   INVITATIONS: 'invitations',
+  CLASSIFICATION_HISTORY: 'classificationHistory',
+  IMPORT_LOGS: 'importLogs',
+  SYSTEM_SETTINGS: 'systemSettings',
+  REMINDER_LOGS: 'reminderLogs',
 } as const;
 
 // Firestore サブコレクション名
