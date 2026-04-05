@@ -1,18 +1,19 @@
 /**
- * マネーフォワード クラウド会計 OAuth 2.0 クライアント
+ * マネーフォワード クラウド会計Plus OAuth 2.0 クライアント
  *
  * 認証フロー:
  *   1. /api/auth/mf/start  → MF認可画面へリダイレクト（初回のみ管理者が実行）
  *   2. /api/auth/mf/callback → 認可コードを受け取りトークン取得・Secret Manager保存
- *   3. 以降はrefresh_tokenで自動更新
+ *   3. 以降はrefresh_tokenで自動更新（有効期限540日）
  *
- * 使用するエンドポイント（会計API）:
- *   https://accounting.moneyforward.com/api/v1/journals  等
+ * API リファレンス:
+ *   https://developers.biz.moneyforward.com/docs/partner-api/enterprise-accounting/v3
  */
 
 // MF Biz API 認証エンドポイント（/authorize / /token がパス）
 const MF_AUTH_BASE = 'https://api.biz.moneyforward.com';
-const MF_ACCOUNTING_BASE = 'https://accounting.moneyforward.com/api/v1';
+// クラウド会計Plus API v3
+const MF_ACCOUNTING_BASE = 'https://api-enterprise-accounting.moneyforward.com/api/v3';
 
 const REDIRECT_URI =
   process.env.NODE_ENV === 'production'
@@ -67,8 +68,8 @@ export function buildAuthorizationUrl(state: string): string {
     response_type: 'code',
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
-    // 会計APIのスコープ（読み取り権限）
-    scope: 'mfc/accounting/journal.read mfc/accounting/account_item.read mfc/accounting/walletable.read',
+    // 会計Plus APIのスコープ（読み取り権限 + 事業者情報）
+    scope: 'mfc/enterprise-accounting/journal.read mfc/enterprise-accounting/master.read mfc/enterprise-accounting/office.read mfc/enterprise-accounting/report.read',
     state,
   });
   return `${MF_AUTH_BASE}/authorize?${params.toString()}`;
